@@ -79,7 +79,7 @@ Example (???):
 001102000D40B5C6056F00021F43090F4570 - Custom - waterline (high)
 001102000BCCBCC6056F00021F43090F4570
                       ^^
-					  Day of week?
+                      Day of week?
 ```
 
 State:
