@@ -65,11 +65,21 @@ Example (???):
 
 ```
     State
-    |     Minutes remaining
-    |     |
-????|\????|\????????????????????????
+	|   Cleaning mode
+    |   | Minutes remaining
+    |   | |
+????|\??|\|\????????????????????????
 001104000B7309C305B3FD011F43090F4570
 001101000BD20EC305B3FD011F43090F4570
+001104000B84AFC6056F00021F43090F4570 - Deep - floor and walls (high)
+001102000863B1C6056F00021F43090F4570 - Quick - floor only (standard)
+001102000C36B2C6056F00021F43090F4570 - Waterline only (standard)
+00110200096DB3C6056F00021F43090F4570 - Custom - floor (high)
+001102000A9FB4C6056F00021F43090F4570 - Cusomm - floor and walls (standard)
+001102000D40B5C6056F00021F43090F4570 - Custom - waterline (high)
+001102000BCCBCC6056F00021F43090F4570
+                      ^^
+					  Day of week?
 ```
 
 State:
@@ -78,4 +88,13 @@ State:
 * `02`; running (???)
 * `04`; running (???)
 * `0B`; remote control
+
+Cleaning mode:
+
+* `08`; floor (standard)
+* `09`; floor (high) [custom]
+* `0A`; floor and walls (standard) [custom]
+* `0B`; floor and walls (high)
+* `0C`; waterline (standard)
+* `0D`; waterline (high) [custom]
 
