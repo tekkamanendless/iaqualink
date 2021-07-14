@@ -31,16 +31,16 @@ The result is plain text representing hexadecimal data.
 Example (every day at 3am):
 
 ```
-      Monday
-      |   Tuesday
-      |   |   Wednesday
-      |   |   |   Thursday
-      |   |   |   |   Friday 
-      |   |   |   |   |   Saturday
-      |   |   |   |   |   |   Sunday
-      |__ |__ |__ |__ |__ |__ |__
-??????|  \|  \|  \|  \|  \|  \|  \
-000D7F0300030003000300030003000300
+       Monday
+       |    Tuesday
+       |    |    Wednesday
+       |    |    |   Thursday
+       |    |    |    |    Friday 
+       |    |    |    |    |    Saturday
+       |    |    |    |    |    |    Sunday
+       |__  |__  |__  |__  |__  |__  |__
+?????? |  \ |  \ |  \ |  \ |  \ |  \ |  \
+000D7F 0300 0300 0300 0300 0300 0300 0300
 ```
 
 Days start with Monday and end with Sunday.
@@ -64,28 +64,30 @@ The result is plain text representing hexadecimal data.
 Example (???):
 
 ```
-    State
-	|   Cleaning mode
-    |   | Minutes remaining
-    |   | |
-????|\??|\|\????????????????????????
-001104000B7309C305B3FD011F43090F4570
-001101000BD20EC305B3FD011F43090F4570
-001104000B84AFC6056F00021F43090F4570 - Deep - floor and walls (high)
-001102000863B1C6056F00021F43090F4570 - Quick - floor only (standard)
-001102000C36B2C6056F00021F43090F4570 - Waterline only (standard)
-00110200096DB3C6056F00021F43090F4570 - Custom - floor (high)
-001102000A9FB4C6056F00021F43090F4570 - Cusomm - floor and walls (standard)
-001102000D40B5C6056F00021F43090F4570 - Custom - waterline (high)
-001102000BCCBCC6056F00021F43090F4570
-                      ^^
-                      Day of week?
+     State
+     |     Cleaning mode
+     |     |  Minutes remaining
+     |     |  |
+???? |\ ?? |\ |\ ????????????????????????
+0011 04 00 0B 73 09C305B3FD011F43090F4570
+0011 01 00 0B D2 0EC305B3FD011F43090F4570
+0011 04 00 0B 84 AFC6056F00021F43090F4570 - Deep - floor and walls (high)
+0011 02 00 08 63 B1C6056F00021F43090F4570 - Quick - floor only (standard)
+0011 02 00 0C 36 B2C6056F00021F43090F4570 - Waterline only (standard)
+0011 02 00 09 6D B3C6056F00021F43090F4570 - Custom - floor (high)
+0011 02 00 0A 9F B4C6056F00021F43090F4570 - Cusomm - floor and walls (standard)
+0011 02 00 0D 40 B5C6056F00021F43090F4570 - Custom - waterline (high)
+0011 02 00 0B CC BCC6056F00021F43090F4570
+0011 03 00 0B D2 2ACA052103021F43090F4570 - Finished
+                           ^^
+                           Day of week?
 ```
 
 State:
 
 * `01`; stopped
 * `02`; running (???)
+* `03`; finished (???)
 * `04`; running (???)
 * `0B`; remote control
 
