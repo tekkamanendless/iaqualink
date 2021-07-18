@@ -11,6 +11,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/spf13/cobra/doc"
 	"github.com/tekkamanendless/iaqualink"
 )
 
@@ -85,6 +86,33 @@ func main() {
 				fmt.Printf("%s\n", contents)
 			},
 		}
+		rootCmd.AddCommand(cmd)
+	}
+
+	{
+		cmd := &cobra.Command{
+			Use:   "generate-docs",
+			Short: "Generate the docs for this tool",
+			Long:  ``,
+			Args:  cobra.ExactArgs(0),
+			Run: func(cmd *cobra.Command, args []string) {
+				directory, err := cmd.Flags().GetString("directory")
+				if err != nil {
+					logrus.Errorf("Error: %v", err)
+					os.Exit(1)
+				}
+				if directory == "" {
+					logrus.Errorf("Missing output directory; please specify one with \"--directory\".")
+					os.Exit(1)
+				}
+				err = doc.GenMarkdownTree(rootCmd, directory)
+				if err != nil {
+					logrus.Errorf("Error: %v", err)
+					os.Exit(1)
+				}
+			},
+		}
+		cmd.Flags().String("directory", "", "The directory to write the docs to")
 		rootCmd.AddCommand(cmd)
 	}
 
