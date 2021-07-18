@@ -117,204 +117,223 @@ func main() {
 	}
 
 	{
-		cmd := &cobra.Command{
-			Use:   "device-execute-read-command",
-			Short: "Run a command on a device",
+		var deviceID string
+		deviceCmd := &cobra.Command{
+			Use:   "device",
+			Short: "Device commands",
 			Long:  ``,
-			Args:  cobra.MinimumNArgs(1),
-			Run: func(cmd *cobra.Command, args []string) {
-				deviceID := args[0]
-				values := url.Values{}
-
-				for _, parameter := range args[1:] {
-					parts := strings.SplitN(parameter, "=", 2)
-					key := parts[0]
-					value := parts[1]
-					values.Set(key, value)
-				}
-
-				client, err := buildClient(cmd)
+			PersistentPreRun: func(cmd *cobra.Command, args []string) {
+				var err error
+				deviceID, err = cmd.Flags().GetString("id")
 				if err != nil {
 					logrus.Errorf("Error: %v", err)
 					os.Exit(1)
 				}
-				output, err := client.DeviceExecuteReadCommand(deviceID, values)
-				if err != nil {
-					logrus.Errorf("Error: %v", err)
+				if deviceID == "" {
+					logrus.Errorf("Missing device ID; please specify one with \"--id\".")
 					os.Exit(1)
 				}
-				contents, err := json.MarshalIndent(output, "", "   ")
-				if err != nil {
-					logrus.Errorf("Error: %v", err)
-					os.Exit(1)
-				}
-				fmt.Printf("%s\n", contents)
 			},
 		}
-		rootCmd.AddCommand(cmd)
-	}
+		deviceCmd.PersistentFlags().String("id", "", "The ID of the device")
+		rootCmd.AddCommand(deviceCmd)
 
-	{
-		cmd := &cobra.Command{
-			Use:   "device-start",
-			Short: "Start the device",
-			Long:  ``,
-			Args:  cobra.MinimumNArgs(1),
-			Run: func(cmd *cobra.Command, args []string) {
-				deviceID := args[0]
-				values := url.Values{}
-				values.Set("request", "0A1240")
-				values.Set("timeout", "800")
+		{
+			cmd := &cobra.Command{
+				Use:   "execute-read-command",
+				Short: "Run a command on a device",
+				Long:  ``,
+				Args:  cobra.MinimumNArgs(0),
+				Run: func(cmd *cobra.Command, args []string) {
+					values := url.Values{}
 
-				client, err := buildClient(cmd)
-				if err != nil {
-					logrus.Errorf("Error: %v", err)
-					os.Exit(1)
-				}
-				output, err := client.DeviceExecuteReadCommand(deviceID, values)
-				if err != nil {
-					logrus.Errorf("Error: %v", err)
-					os.Exit(1)
-				}
-				contents, err := json.MarshalIndent(output, "", "   ")
-				if err != nil {
-					logrus.Errorf("Error: %v", err)
-					os.Exit(1)
-				}
-				fmt.Printf("%s\n", contents)
-			},
-		}
-		rootCmd.AddCommand(cmd)
-	}
-
-	{
-		cmd := &cobra.Command{
-			Use:   "device-stop",
-			Short: "Stop the device",
-			Long:  ``,
-			Args:  cobra.MinimumNArgs(1),
-			Run: func(cmd *cobra.Command, args []string) {
-				deviceID := args[0]
-				values := url.Values{}
-				values.Set("request", "0A1210")
-				values.Set("timeout", "800")
-
-				client, err := buildClient(cmd)
-				if err != nil {
-					logrus.Errorf("Error: %v", err)
-					os.Exit(1)
-				}
-				output, err := client.DeviceExecuteReadCommand(deviceID, values)
-				if err != nil {
-					logrus.Errorf("Error: %v", err)
-					os.Exit(1)
-				}
-				contents, err := json.MarshalIndent(output, "", "   ")
-				if err != nil {
-					logrus.Errorf("Error: %v", err)
-					os.Exit(1)
-				}
-				fmt.Printf("%s\n", contents)
-			},
-		}
-		rootCmd.AddCommand(cmd)
-	}
-
-	{
-		cmd := &cobra.Command{
-			Use:   "device-status",
-			Short: "Show the status of the device",
-			Long:  ``,
-			Args:  cobra.MinimumNArgs(1),
-			Run: func(cmd *cobra.Command, args []string) {
-				deviceID := args[0]
-				values := url.Values{}
-				values.Set("request", "0A11")
-				values.Set("timeout", "800")
-
-				client, err := buildClient(cmd)
-				if err != nil {
-					logrus.Errorf("Error: %v", err)
-					os.Exit(1)
-				}
-				output, err := client.DeviceExecuteReadCommand(deviceID, values)
-				if err != nil {
-					logrus.Errorf("Error: %v", err)
-					os.Exit(1)
-				}
-				results := map[string]interface{}{}
-				results["_response"] = output.Command.Response
-				if len(output.Command.Response) == len("001102000BD18FD305E407021F43090F4570") {
-					state := output.Command.Response[(2)*2:][:2]
-					results["state"] = state
-					var stateName string
-					switch state {
-					case "01":
-						stateName = "stopped"
-					case "02":
-						stateName = "running"
-					case "03":
-						stateName = "finished"
-					case "04":
-						stateName = "running"
-					case "0A":
-						stateName = "lift system"
-					case "0B":
-						stateName = "remote control"
-					case "0D":
-						stateName = "error - out of water"
+					for _, parameter := range args[0:] {
+						parts := strings.SplitN(parameter, "=", 2)
+						key := parts[0]
+						value := parts[1]
+						values.Set(key, value)
 					}
-					results["state_name"] = stateName
 
-					cleaningMode := output.Command.Response[(4)*2:][:2]
-					results["cleaning_mode"] = cleaningMode
-					var cleaningModeName string
-					switch cleaningMode {
-					case "08":
-						cleaningModeName = "floor (standard)"
-					case "09":
-						cleaningModeName = "floor (high)"
-					case "0A":
-						cleaningModeName = "floor and walls (standard)"
-					case "0B":
-						cleaningModeName = "floor and walls (high)"
-					case "0C":
-						cleaningModeName = "waterline (standard)"
-					case "0D":
-						cleaningModeName = "waterline (high)"
-					}
-					results["cleaning_mode_name"] = cleaningModeName
-
-					minutesRemainingString := output.Command.Response[(5)*2:][:2]
-					minutesRemaining, err := strconv.ParseInt(minutesRemainingString, 16, 64)
+					client, err := buildClient(cmd)
 					if err != nil {
-						logrus.Warnf("Could not parse minutes remaining: %v", err)
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
 					}
-					results["minutes_remaining"] = minutesRemaining
-
-					uptimeString := output.Command.Response[(6)*2:][:4]
-					var parts []string
-					for len(uptimeString) > 0 {
-						part := uptimeString[0:2]
-						uptimeString = uptimeString[2:]
-						parts = append([]string{part}, parts...)
-					}
-					uptimeString = strings.Join(parts, "")
-					uptime, err := strconv.ParseInt(uptimeString, 16, 64)
+					output, err := client.DeviceExecuteReadCommand(deviceID, values)
 					if err != nil {
-						logrus.Warnf("Could not parse uptime: %v", err)
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
 					}
-					results["uptime"] = uptime
-				}
-				contents, err := json.MarshalIndent(results, "", "   ")
-				if err != nil {
-					logrus.Errorf("Error: %v", err)
-					os.Exit(1)
-				}
-				fmt.Printf("%s\n", contents)
-			},
+					contents, err := json.MarshalIndent(output, "", "   ")
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					fmt.Printf("%s\n", contents)
+				},
+			}
+			deviceCmd.AddCommand(cmd)
 		}
-		rootCmd.AddCommand(cmd)
+
+		{
+			cmd := &cobra.Command{
+				Use:   "start",
+				Short: "Start the device",
+				Long:  ``,
+				Args:  cobra.ExactArgs(0),
+				Run: func(cmd *cobra.Command, args []string) {
+					values := url.Values{}
+					values.Set("request", "0A1240")
+					values.Set("timeout", "800")
+
+					client, err := buildClient(cmd)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					output, err := client.DeviceExecuteReadCommand(deviceID, values)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					contents, err := json.MarshalIndent(output, "", "   ")
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					fmt.Printf("%s\n", contents)
+				},
+			}
+			deviceCmd.AddCommand(cmd)
+		}
+
+		{
+			cmd := &cobra.Command{
+				Use:   "stop",
+				Short: "Stop the device",
+				Long:  ``,
+				Args:  cobra.ExactArgs(0),
+				Run: func(cmd *cobra.Command, args []string) {
+					values := url.Values{}
+					values.Set("request", "0A1210")
+					values.Set("timeout", "800")
+
+					client, err := buildClient(cmd)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					output, err := client.DeviceExecuteReadCommand(deviceID, values)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					contents, err := json.MarshalIndent(output, "", "   ")
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					fmt.Printf("%s\n", contents)
+				},
+			}
+			deviceCmd.AddCommand(cmd)
+		}
+
+		{
+			cmd := &cobra.Command{
+				Use:   "status",
+				Short: "Show the status of the device",
+				Long:  ``,
+				Args:  cobra.ExactArgs(0),
+				Run: func(cmd *cobra.Command, args []string) {
+					values := url.Values{}
+					values.Set("request", "0A11")
+					values.Set("timeout", "800")
+
+					client, err := buildClient(cmd)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					output, err := client.DeviceExecuteReadCommand(deviceID, values)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					results := map[string]interface{}{}
+					results["_response"] = output.Command.Response
+					if len(output.Command.Response) == len("001102000BD18FD305E407021F43090F4570") {
+						state := output.Command.Response[(2)*2:][:2]
+						results["state"] = state
+						var stateName string
+						switch state {
+						case "01":
+							stateName = "stopped"
+						case "02":
+							stateName = "running"
+						case "03":
+							stateName = "finished"
+						case "04":
+							stateName = "running"
+						case "0A":
+							stateName = "lift system"
+						case "0B":
+							stateName = "remote control"
+						case "0D":
+							stateName = "error - out of water"
+						}
+						results["state_name"] = stateName
+
+						cleaningMode := output.Command.Response[(4)*2:][:2]
+						results["cleaning_mode"] = cleaningMode
+						var cleaningModeName string
+						switch cleaningMode {
+						case "08":
+							cleaningModeName = "floor (standard)"
+						case "09":
+							cleaningModeName = "floor (high)"
+						case "0A":
+							cleaningModeName = "floor and walls (standard)"
+						case "0B":
+							cleaningModeName = "floor and walls (high)"
+						case "0C":
+							cleaningModeName = "waterline (standard)"
+						case "0D":
+							cleaningModeName = "waterline (high)"
+						}
+						results["cleaning_mode_name"] = cleaningModeName
+
+						minutesRemainingString := output.Command.Response[(5)*2:][:2]
+						minutesRemaining, err := strconv.ParseInt(minutesRemainingString, 16, 64)
+						if err != nil {
+							logrus.Warnf("Could not parse minutes remaining: %v", err)
+						}
+						results["minutes_remaining"] = minutesRemaining
+
+						uptimeString := output.Command.Response[(6)*2:][:4]
+						var parts []string
+						for len(uptimeString) > 0 {
+							part := uptimeString[0:2]
+							uptimeString = uptimeString[2:]
+							parts = append([]string{part}, parts...)
+						}
+						uptimeString = strings.Join(parts, "")
+						uptime, err := strconv.ParseInt(uptimeString, 16, 64)
+						if err != nil {
+							logrus.Warnf("Could not parse uptime: %v", err)
+						}
+						results["uptime"] = uptime
+					}
+					contents, err := json.MarshalIndent(results, "", "   ")
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					fmt.Printf("%s\n", contents)
+				},
+			}
+			deviceCmd.AddCommand(cmd)
+		}
 	}
 
 	{
