@@ -1,6 +1,9 @@
 # iaqualink
 Go package for talking with iAquaLink pool robots.
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/tekkamanendless/iaqualink)](https://goreportcard.com/report/github.com/tekkamanendless/iaqualink)
+[![GoDoc](https://godoc.org/github.com/tekkamanendless/iaqualink?status.svg)](https://godoc.org/github.com/tekkamanendless/iaqualink)
+
 ## Endpoints
 
 ### `/devices/${device}/execute_read_command.json`
