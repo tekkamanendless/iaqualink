@@ -1,16 +1,52 @@
-# iaqualink
-Go package for talking with iAquaLink pool robots.
-
 [![Go Report Card](https://goreportcard.com/badge/github.com/tekkamanendless/iaqualink)](https://goreportcard.com/report/github.com/tekkamanendless/iaqualink)
 [![GoDoc](https://godoc.org/github.com/tekkamanendless/iaqualink?status.svg)](https://godoc.org/github.com/tekkamanendless/iaqualink)
 
-## Endpoints
+# iaqualink
+Go package for talking with iAquaLink pool robots.
 
-### `/devices/${device}/execute_read_command.json`
+This package has been built by reverse-engineering the iAquaLink HTTP protocol using `mitmproxy`.
+
+## Tested With
+
+* Polaris P965IQ
+
+## Zodiac API
+Base: https://prod.zodiac-io.com
+
+### `/users/v1/login`
+This logs you into the Zodiac API and provides you with a user ID and authentication token.
+These will be used by the iAquaLink API.
+
+JSON body:
+
+* `apiKey`: `EOOEMOW4YR6QNB07`; this appears to be constant
+* `email`; your e-mail address
+* `password`; your password
+
+JSON response (relevant subset):
+
+* `authenticationToken`; this is the authentication token
+* `id`; this is the user ID
+
+## iAquaLink API
+Base: https://r-api.iaqualink.net
+
+### `/devices.json`
+This lists the devices on your account.
+You'll need the device ID for any device-related endpoints.
 
 Query parameters:
 
-* `api_key`: `EOOEMOW4YR6QNB07`
+* `api_key`: `EOOEMOW4YR6QNB07`; this appears to be constant
+* `authentication_token`; your authentication token
+* `user_id`; your user ID
+
+### `/devices/${device}/execute_read_command.json`
+This executes a command on a device.
+
+Query parameters:
+
+* `api_key`: `EOOEMOW4YR6QNB07`; this appears to be constant
 * `authentication_token`; your authentication token
 * `user_id`; your user ID
 * `command`; the command
@@ -40,7 +76,7 @@ Request codes:
 
 Request code format:
 
-* `0A` `<command>` `<subcommand>`
+* `0A` `<command>` [`<subcommand>`]
 
 Commands:
 
@@ -65,32 +101,37 @@ Commands:
     * `52`; ASCII "R" - right
 
 ## Responses
-Start/clear error response
+The response is plain text representing hexadecimal data (no spaces).
 
-```
-0012 01
-```
+Response code format:
 
-Add/subtract time response
+* `00` `<command>` `<specific response>`
 
-```
-0013 01
-```
+### Simple Responses
+These commands all seem to respond back with a specific response of `01`, which I'm assuming is a basic acknowledgement.
 
-Lift system, lift/stop response
+* Start/clear error response
+    ```
+    0012 01
+    ```
 
-```
-0017 01
-```
+* Add/subtract time response
+    ```
+    0013 01
+    ```
 
-Left/right/forward/backward response
+* Lift system, lift/stop response
+    ```
+    0017 01
+    ```
 
-```
-001B 01
-```
+* Left/right/forward/backward response
+    ```
+    001B 01
+    ```
 
-### Schedule format
-The result is plain text representing hexadecimal data.
+### Schedule Response
+The result is plain text representing hexadecimal data (no spaces).
 
 Example (every day at 3am):
 
@@ -122,38 +163,45 @@ For example, `0300` is 3am; `030F` is 3:15am, `031E` is 3:30am, etc.
 
 Note that the iAquaLink app requires that the minute be in 15-minute increments.
 
-### Status format
-The result is plain text representing hexadecimal data.
+### Status Response
+The result is plain text representing hexadecimal data (no spaces).
 
-Example (???):
+Examples (???):
 
 ```
      State
-     |     Cleaning mode
-     |     |  Minutes remaining
-     |     |  |
-     |\ ?? |\ |\ ???? ?? ???? ?? ????????????
-0011 04 00 0B 73 09C3 05 B3FD 01 1F43090F4570
-0011 01 00 0B D2 0EC3 05 B3FD 01 1F43090F4570
-0011 04 00 0B 84 AFC6 05 6F00 02 1F43090F4570 - Deep - floor and walls (high)
-0011 02 00 08 63 B1C6 05 6F00 02 1F43090F4570 - Quick - floor only (standard)
-0011 02 00 0C 36 B2C6 05 6F00 02 1F43090F4570 - Waterline only (standard)
-0011 02 00 09 6D B3C6 05 6F00 02 1F43090F4570 - Custom - floor (high)
-0011 02 00 0A 9F B4C6 05 6F00 02 1F43090F4570 - Cusomm - floor and walls (standard)
-0011 02 00 0D 40 B5C6 05 6F00 02 1F43090F4570 - Custom - waterline (high)
-0011 02 00 0B CC BCC6 05 6F00 02 1F43090F4570
-0011 03 00 0B D2 2ACA 05 2103 02 1F43090F4570 - Finished
-0011 03 00 0B D2 40CA 05 2103 02 1F43090F4570
-0011 03 00 0B D2 44CA 05 2103 02 1F43090F4570 - Finished [12:07am]
-0011 03 00 0B D2 45CA 05 2103 02 1F43090F4570 - Finished [12:08am]
-0011 03 00 0B D2 46CA 05 2103 02 1F43090F4570 - Finished [12:09am]
-0011 0D 08 0B D2 B3D1 05 1807 02 1F43090F4570 - Error - out of water [8:19am]
-0011 03 00 0B D2 8DD3 05 E407 02 1F43090F4570 [4:21pm]
-0011 02 00 0B D1 8FD3 05 E407 02 1F4309000000 [4:23pm]
-0011 02 00 0B D0 90D3 05 E407 02 1F43090F4570 [4:24pm]
-
-                 ^^^^
-                 Uptime?
+     |  Error code ???
+     |  |  Cleaning mode
+     |  |  |  Minutes remaining
+     |  |  |  |  Uptime (minutes) ???
+     |  |  |  |  |      Runtime (minutes) ???
+     |  |  |  |  |____  |____
+     |\ |\ |\ |\ |    \ |    \ ?????? ??????
+0011 04 00 0B 73 09C305 B3FD01 1F4309 0F4570
+0011 04 00 0B 00 39CF05 820502 1F4309 0F4570 [9:37pm]
+0011 0C 00 0B 00 3ACF05 4E0602 1F4309 0F4570 [9:38pm]
+0011 03 00 0B D2 3BCF05 4E0602 1F4309 0F4570 [9:39pm]
+0011 01 00 0B D2 0EC305 B3FD01 1F4309 0F4570
+0011 04 00 0B 84 AFC605 6F0002 1F4309 0F4570 - Deep - floor and walls (high)
+0011 02 00 08 63 B1C605 6F0002 1F4309 0F4570 - Quick - floor only (standard)
+0011 02 00 0C 36 B2C605 6F0002 1F4309 0F4570 - Waterline only (standard)
+0011 02 00 09 6D B3C605 6F0002 1F4309 0F4570 - Custom - floor (high)
+0011 02 00 0A 9F B4C605 6F0002 1F4309 0F4570 - Cusomm - floor and walls (standard)
+0011 02 00 0D 40 B5C605 6F0002 1F4309 0F4570 - Custom - waterline (high)
+0011 02 00 0B CC BCC605 6F0002 1F4309 0F4570
+0011 03 00 0B D2 2ACA05 210302 1F4309 0F4570 - Finished
+0011 03 00 0B D2 40CA05 210302 1F4309 0F4570
+0011 03 00 0B D2 44CA05 210302 1F4309 0F4570 - Finished [12:07am]
+0011 03 00 0B D2 45CA05 210302 1F4309 0F4570 - Finished [12:08am]
+0011 03 00 0B D2 46CA05 210302 1F4309 0F4570 - Finished [12:09am]
+0011 0D 08 0B D2 B3D105 180702 1F4309 0F4570 - Error - out of water [8:19am]
+0011 03 00 0B D2 8DD305 E40702 1F4309 0F4570 [4:21pm]
+0011 02 00 0B D1 8FD305 E40702 1F4309 000000 [4:23pm]
+0011 02 00 0B D0 90D305 E40702 1F4309 0F4570 [4:24pm]
+0011 03 00 0B D2 2FEC05 F71202 1F4309 0F4570 - Finished [2:59am]
+0011 02 00 0B D1 30EC05 F71202 1F4309 0F4570 - Started [3:00am]
+0011 0D 08 0B D2 31EC05 A51302 1F4309 0F4570 - Error - out of water [3:01am]
+0011 0E 08 0B D2 3BEC05 A51302 1F4309 0F4570 - Error - ??? [3:11am]
 ```
 
 State:
@@ -164,16 +212,26 @@ State:
 * `04`; running
 * `0A`; lift system
 * `0B`; remote control
+* `OC`; ???
 * `0D`; error - out of water
+* `OE`; error - ???
 
 I've seen it transition from `02` to `04` 10 minutes into a scheduled cleaning and 10 minutes into a manual cleaning.
+
+I've seen it transition from `OD` to `OE` 10 minutes into a scheduled cleaning when the robot was out of the water.
+
+I've seen it transition from `04` to `0C` to `03` over the span of 3 minutes.
+
+Error code ???:
+
+* `00`; no error
+* `08`; out of water
 
 Cleaning mode:
 
 * `08`; floor (standard)
-* `09`; floor (high) [custom]
-* `0A`; floor and walls (standard) [custom]
+* `09`; floor (high) ["custom" in the app]
+* `0A`; floor and walls (standard) ["custom" in the app]
 * `0B`; floor and walls (high)
 * `0C`; waterline (standard)
-* `0D`; waterline (high) [custom]
-
+* `0D`; waterline (high) ["custom" in the app]

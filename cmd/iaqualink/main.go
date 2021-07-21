@@ -308,9 +308,22 @@ func main() {
 						case "0B":
 							stateName = "remote control"
 						case "0D":
-							stateName = "error - out of water"
+							stateName = "error"
+						case "0E":
+							stateName = "error"
 						}
 						results["state_name"] = stateName
+
+						errorState := output.Command.Response[(3)*2:][:2]
+						results["error"] = errorState
+						var errorStateName string
+						switch errorState {
+						case "00":
+							stateName = "none"
+						case "08":
+							stateName = "out of water"
+						}
+						results["error_name"] = errorStateName
 
 						cleaningMode := output.Command.Response[(4)*2:][:2]
 						results["cleaning_mode"] = cleaningMode
@@ -338,7 +351,7 @@ func main() {
 						}
 						results["minutes_remaining"] = minutesRemaining
 
-						uptimeString := output.Command.Response[(6)*2:][:4]
+						uptimeString := output.Command.Response[(6)*2:][:6]
 						var parts []string
 						for len(uptimeString) > 0 {
 							part := uptimeString[0:2]
@@ -351,6 +364,20 @@ func main() {
 							logrus.Warnf("Could not parse uptime: %v", err)
 						}
 						results["uptime"] = uptime
+
+						runtimeString := output.Command.Response[(9)*2:][:6]
+						parts = []string{}
+						for len(runtimeString) > 0 {
+							part := runtimeString[0:2]
+							runtimeString = runtimeString[2:]
+							parts = append([]string{part}, parts...)
+						}
+						runtimeString = strings.Join(parts, "")
+						runtime, err := strconv.ParseInt(runtimeString, 16, 64)
+						if err != nil {
+							logrus.Warnf("Could not parse runtime: %v", err)
+						}
+						results["runtime"] = runtime
 					}
 					contents, err := json.MarshalIndent(results, "", "   ")
 					if err != nil {
