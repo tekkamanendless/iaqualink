@@ -291,93 +291,154 @@ func main() {
 					results := map[string]interface{}{}
 					results["_response"] = output.Command.Response
 					if len(output.Command.Response) == len("001102000BD18FD305E407021F43090F4570") {
-						state := output.Command.Response[(2)*2:][:2]
+						input := output.Command.Response
+
+						firstByteString := input[0:2]
+						input = input[2:]
+						firstByte, err := parseNumberFromLittleEndianHexadecimal(firstByteString)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						if firstByte != 0x00 {
+							logrus.Warnf("Unexpected first byte: %x", firstByte)
+						}
+
+						secondByteString := input[0:2]
+						input = input[2:]
+						secondByte, err := parseNumberFromLittleEndianHexadecimal(secondByteString)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						if secondByte != 0x11 {
+							logrus.Warnf("Unexpected second byte: %x", secondByte)
+						}
+
+						stateString := input[0:2]
+						input = input[2:]
+						state, err := parseNumberFromLittleEndianHexadecimal(stateString)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+
 						results["state"] = state
 						var stateName string
 						switch state {
-						case "01":
+						case 0x01:
 							stateName = "stopped"
-						case "02":
+						case 0x02:
 							stateName = "running"
-						case "03":
+						case 0x03:
 							stateName = "finished"
-						case "04":
+						case 0x04:
 							stateName = "running"
-						case "0A":
+						case 0x0A:
 							stateName = "lift system"
-						case "0B":
+						case 0x0B:
 							stateName = "remote control"
-						case "0D":
+						case 0x0D:
 							stateName = "error"
-						case "0E":
+						case 0x0E:
 							stateName = "error"
 						}
 						results["state_name"] = stateName
 
-						errorState := output.Command.Response[(3)*2:][:2]
+						errorStateString := input[0:2]
+						input = input[2:]
+						errorState, err := parseNumberFromLittleEndianHexadecimal(errorStateString)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+
 						results["error"] = errorState
 						var errorStateName string
 						switch errorState {
-						case "00":
+						case 0x00:
 							stateName = "none"
-						case "08":
+						case 0x08:
 							stateName = "out of water"
 						}
 						results["error_name"] = errorStateName
 
-						cleaningMode := output.Command.Response[(4)*2:][:2]
+						cleaningModeString := input[0:2]
+						input = input[2:]
+						cleaningMode, err := parseNumberFromLittleEndianHexadecimal(cleaningModeString)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+
 						results["cleaning_mode"] = cleaningMode
 						var cleaningModeName string
 						switch cleaningMode {
-						case "08":
+						case 0x08:
 							cleaningModeName = "floor (standard)"
-						case "09":
+						case 0x09:
 							cleaningModeName = "floor (high)"
-						case "0A":
+						case 0x0A:
 							cleaningModeName = "floor and walls (standard)"
-						case "0B":
+						case 0x0B:
 							cleaningModeName = "floor and walls (high)"
-						case "0C":
+						case 0x0C:
 							cleaningModeName = "waterline (standard)"
-						case "0D":
+						case 0x0D:
 							cleaningModeName = "waterline (high)"
 						}
 						results["cleaning_mode_name"] = cleaningModeName
 
-						minutesRemainingString := output.Command.Response[(5)*2:][:2]
-						minutesRemaining, err := strconv.ParseInt(minutesRemainingString, 16, 64)
+						minutesRemainingString := input[0:2]
+						input = input[2:]
+						minutesRemaining, err := parseNumberFromLittleEndianHexadecimal(minutesRemainingString)
 						if err != nil {
-							logrus.Warnf("Could not parse minutes remaining: %v", err)
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
 						}
 						results["minutes_remaining"] = minutesRemaining
 
-						uptimeString := output.Command.Response[(6)*2:][:6]
-						var parts []string
-						for len(uptimeString) > 0 {
-							part := uptimeString[0:2]
-							uptimeString = uptimeString[2:]
-							parts = append([]string{part}, parts...)
-						}
-						uptimeString = strings.Join(parts, "")
-						uptime, err := strconv.ParseInt(uptimeString, 16, 64)
+						uptimeString := input[0:6]
+						input = input[6:]
+						uptime, err := parseNumberFromLittleEndianHexadecimal(uptimeString)
 						if err != nil {
-							logrus.Warnf("Could not parse uptime: %v", err)
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
 						}
-						results["uptime"] = uptime
+						results["uptime_minutes"] = uptime
 
-						runtimeString := output.Command.Response[(9)*2:][:6]
-						parts = []string{}
-						for len(runtimeString) > 0 {
-							part := runtimeString[0:2]
-							runtimeString = runtimeString[2:]
-							parts = append([]string{part}, parts...)
-						}
-						runtimeString = strings.Join(parts, "")
-						runtime, err := strconv.ParseInt(runtimeString, 16, 64)
+						runtimeString := input[0:6]
+						input = input[6:]
+						runtime, err := parseNumberFromLittleEndianHexadecimal(runtimeString)
 						if err != nil {
-							logrus.Warnf("Could not parse runtime: %v", err)
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
 						}
-						results["runtime"] = runtime
+						results["runtime_minutes"] = runtime
+
+						unknown1String := input[0:6]
+						input = input[6:]
+						unknown1, err := parseNumberFromLittleEndianHexadecimal(unknown1String)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						results["unknown1"] = unknown1
+
+						unknown2String := input[0:6]
+						input = input[6:]
+						unknown2, err := parseNumberFromLittleEndianHexadecimal(unknown2String)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						results["unknown2"] = unknown2
+
+						if len(input) > 0 {
+							logrus.Warnf("Extra data in the response: %s", input)
+						}
+					} else {
+						logrus.Warnf("Unexpected response length: %d", len(output.Command.Response))
 					}
 					contents, err := json.MarshalIndent(results, "", "   ")
 					if err != nil {
@@ -428,6 +489,9 @@ func main() {
 	rootCmd.Execute()
 }
 
+// buildClient creates an `iaqualink.Client` for the command.
+//
+// This leverages the "config" flag.
 func buildClient(cmd *cobra.Command) (*iaqualink.Client, error) {
 	configFilename, err := cmd.Flags().GetString("config")
 	if err != nil {
@@ -447,4 +511,22 @@ func buildClient(cmd *cobra.Command) (*iaqualink.Client, error) {
 		UserID:              config.UserID,
 	}
 	return client, nil
+}
+
+// parseNumberFromLittleEndianHexadecimal parses an integer from a little-endian hexadecimal string.
+func parseNumberFromLittleEndianHexadecimal(input string) (int64, error) {
+	if len(input)%2 != 0 {
+		return 0, fmt.Errorf("input length is not a multiple of 2: %d", len(input))
+	}
+
+	// Reverse the "bytes" of the input string.
+	var parts []string
+	for len(input) > 0 {
+		part := input[0:2]
+		input = input[2:]
+		parts = append([]string{part}, parts...)
+	}
+	input = strings.Join(parts, "")
+	// Parse the string as hexadecmial (base 16).
+	return strconv.ParseInt(input, 16, 64)
 }
