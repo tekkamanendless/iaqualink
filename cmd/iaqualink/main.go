@@ -450,6 +450,101 @@ func main() {
 			}
 			deviceCmd.AddCommand(cmd)
 		}
+
+		{
+			cmd := &cobra.Command{
+				Use:   "schedule",
+				Short: "Show the schedule of the device",
+				Long:  ``,
+				Args:  cobra.ExactArgs(0),
+				Run: func(cmd *cobra.Command, args []string) {
+					values := url.Values{}
+					values.Set("request", "0A0D")
+					values.Set("timeout", "800")
+
+					client, err := buildClient(cmd)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					output, err := client.DeviceExecuteReadCommand(deviceID, values)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					results := map[string]interface{}{}
+					results["_response"] = output.Command.Response
+					if len(output.Command.Response) == len("000D7F0300030003000300030003000300") {
+						input := output.Command.Response
+
+						firstByteString := input[0:2]
+						input = input[2:]
+						firstByte, err := parseNumberFromLittleEndianHexadecimal(firstByteString)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						if firstByte != 0x00 {
+							logrus.Warnf("Unexpected first byte: %x", firstByte)
+						}
+
+						secondByteString := input[0:2]
+						input = input[2:]
+						secondByte, err := parseNumberFromLittleEndianHexadecimal(secondByteString)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						if secondByte != 0x0D {
+							logrus.Warnf("Unexpected second byte: %x", secondByte)
+						}
+
+						unknown1String := input[0:2]
+						input = input[2:]
+						unknown1, err := parseNumberFromLittleEndianHexadecimal(unknown1String)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						results["unknown1"] = unknown1
+
+						days := []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"}
+						for dayIndex, dayName := range days {
+							hourString := input[0:2]
+							input = input[2:]
+							hour, err := parseNumberFromLittleEndianHexadecimal(hourString)
+							if err != nil {
+								logrus.Errorf("Error: %v", err)
+								os.Exit(1)
+							}
+
+							minuteString := input[0:2]
+							input = input[2:]
+							minute, err := parseNumberFromLittleEndianHexadecimal(minuteString)
+							if err != nil {
+								logrus.Errorf("Error: %v", err)
+								os.Exit(1)
+							}
+
+							results[fmt.Sprintf("day_%d_%s", dayIndex, dayName)] = fmt.Sprintf("%02d:%02d", hour, minute)
+						}
+
+						if len(input) > 0 {
+							logrus.Warnf("Extra data in the response: %s", input)
+						}
+					} else {
+						logrus.Warnf("Unexpected response length: %d", len(output.Command.Response))
+					}
+					contents, err := json.MarshalIndent(results, "", "   ")
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					fmt.Printf("%s\n", contents)
+				},
+			}
+			deviceCmd.AddCommand(cmd)
+		}
 	}
 
 	{
