@@ -342,6 +342,8 @@ func main() {
 							stateName = "error"
 						case 0x0E:
 							stateName = "error"
+						default:
+							stateName = "TODO:" + stateString
 						}
 						results["state_name"] = stateName
 
@@ -357,9 +359,13 @@ func main() {
 						var errorStateName string
 						switch errorState {
 						case 0x00:
-							stateName = "none"
+							errorStateName = "none"
+						case 0x05:
+							errorStateName = "drive motor consumption right"
 						case 0x08:
-							stateName = "out of water"
+							errorStateName = "out of water"
+						default:
+							errorStateName = "TODO:" + errorStateString
 						}
 						results["error_name"] = errorStateName
 
@@ -386,6 +392,8 @@ func main() {
 							cleaningModeName = "waterline (standard)"
 						case 0x0D:
 							cleaningModeName = "waterline (high)"
+						default:
+							cleaningModeName = "TODO:" + cleaningModeString
 						}
 						results["cleaning_mode_name"] = cleaningModeName
 
