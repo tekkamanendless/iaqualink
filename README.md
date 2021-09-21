@@ -140,7 +140,7 @@ Example (every day at 3am):
         |    Tuesday
         |    |    Wednesday
         |    |    |   Thursday
-        |    |    |    |    Friday 
+        |    |    |    |    Friday
         |    |    |    |    |    Saturday
         |    |    |    |    |    |    Sunday
         |__  |__  |__  |__  |__  |__  |__
@@ -202,6 +202,7 @@ Examples (???):
 0011 02 00 0B D1 30EC05 F71202 1F4309 0F4570 - Started [3:00am]
 0011 0D 08 0B D2 31EC05 A51302 1F4309 0F4570 - Error - out of water [3:01am]
 0011 0E 08 0B D2 3BEC05 A51302 1F4309 0F4570 - Error - ??? [3:11am]
+0011 0E 05 0B D2 8D4707 0CE202 1F4309 0F4570 - Error - drive motor consumption right
 ```
 
 State:
@@ -213,8 +214,8 @@ State:
 * `0A`; lift system
 * `0B`; remote control
 * `OC`; ???
-* `0D`; error - out of water
-* `OE`; error - ???
+* `0D`; error - first 10 minutes???
+* `OE`; error - after 10 minutes???
 
 I've seen it transition from `02` to `04` 10 minutes into a scheduled cleaning and 10 minutes into a manual cleaning.
 
@@ -225,6 +226,7 @@ I've seen it transition from `04` to `0C` to `03` over the span of 3 minutes.
 Error code ???:
 
 * `00`; no error
+* `05`; drive motor consumption right
 * `08`; out of water
 
 Cleaning mode:
