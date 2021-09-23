@@ -364,6 +364,8 @@ func main() {
 							errorStateName = "drive motor consumption right"
 						case 0x08:
 							errorStateName = "out of water"
+						case 0x0a:
+							errorStateName = "communication"
 						default:
 							errorStateName = "TODO:" + errorStateString
 						}

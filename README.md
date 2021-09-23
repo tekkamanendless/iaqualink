@@ -203,6 +203,7 @@ Examples (???):
 0011 0D 08 0B D2 31EC05 A51302 1F4309 0F4570 - Error - out of water [3:01am]
 0011 0E 08 0B D2 3BEC05 A51302 1F4309 0F4570 - Error - ??? [3:11am]
 0011 0E 05 0B D2 8D4707 0CE202 1F4309 0F4570 - Error - drive motor consumption right
+0011 0E 0A 0B D2 885507 25E302 1F4309 000000 - Error - communication
 ```
 
 State:
@@ -228,6 +229,7 @@ Error code ???:
 * `00`; no error
 * `05`; drive motor consumption right
 * `08`; out of water
+* `0a`; communication
 
 Cleaning mode:
 
