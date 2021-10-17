@@ -205,6 +205,8 @@ Examples (???):
 0011 0E 05 0B D2 8D4707 0CE202 1F4309 0F4570 - Error - drive motor consumption right
 0011 0E 0A 0B D2 885507 25E302 1F4309 000000 - Error - communication
 0011 04 00 0B 03 87DC07 D80F00 1F4309 0F4580 [after replacing the motor block]
+0011 0C 00 0B 00 8CDC07 D80F00 1F4309 0F4580 [as it's finishing up]
+0011 03 00 0B D2 8CDC07 A21000 1F4309 0F4580 [after it finishes]
 ```
 
 State:
@@ -215,7 +217,7 @@ State:
 * `04`; running
 * `0A`; lift system
 * `0B`; remote control
-* `OC`; ???
+* `OC`; finishing???
 * `0D`; error - first 10 minutes???
 * `OE`; error - after 10 minutes???
 
@@ -224,6 +226,8 @@ I've seen it transition from `02` to `04` 10 minutes into a scheduled cleaning a
 I've seen it transition from `OD` to `OE` 10 minutes into a scheduled cleaning when the robot was out of the water.
 
 I've seen it transition from `04` to `0C` to `03` over the span of 3 minutes.
+
+The runtime only appears to update after a cleaning cycle completes.
 
 Error code ???:
 
@@ -240,3 +244,4 @@ Cleaning mode:
 * `0B`; floor and walls (high)
 * `0C`; waterline (standard)
 * `0D`; waterline (high) ["custom" in the app]
+

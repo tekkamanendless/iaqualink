@@ -338,6 +338,8 @@ func main() {
 							stateName = "lift system"
 						case 0x0B:
 							stateName = "remote control"
+						case 0x0C:
+							stateName = "finishing"
 						case 0x0D:
 							stateName = "error"
 						case 0x0E:
