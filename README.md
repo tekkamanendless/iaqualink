@@ -204,6 +204,7 @@ Examples (???):
 0011 0E 08 0B D2 3BEC05 A51302 1F4309 0F4570 - Error - ??? [3:11am]
 0011 0E 05 0B D2 8D4707 0CE202 1F4309 0F4570 - Error - drive motor consumption right
 0011 0E 0A 0B D2 885507 25E302 1F4309 000000 - Error - communication
+0011 04 00 0B 03 87DC07 D80F00 1F4309 0F4580 [after replacing the motor block]
 ```
 
 State:
