@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/url"
 	"os"
 	"strconv"
@@ -20,6 +19,7 @@ type Config struct {
 	Username            string `json:"username"`
 	Password            string `json:"password"`
 	AuthenticationToken string `json:"authentication_token"`
+	IDToken             string `json:"id_token"`
 	UserID              string `json:"user_id"`
 }
 
@@ -63,6 +63,7 @@ func main() {
 					Username:            username,
 					Password:            password,
 					AuthenticationToken: output.AuthenticationToken,
+					IDToken:             output.UserPoolOAuth.IDToken,
 					UserID:              output.ID,
 				}
 				contents, err := json.MarshalIndent(config, "", "   ")
@@ -76,7 +77,7 @@ func main() {
 					logrus.Errorf("Error: %v", err)
 					os.Exit(1)
 				}
-				ioutil.WriteFile(configFilename, contents, 0644)
+				os.WriteFile(configFilename, contents, 0644)
 
 				contents, err = json.MarshalIndent(output, "", "   ")
 				if err != nil {
@@ -151,6 +152,8 @@ func main() {
 			Short: "Device commands",
 			Long:  ``,
 			PersistentPreRun: func(cmd *cobra.Command, args []string) {
+				rootCmd.PersistentPreRun(cmd, args)
+
 				var err error
 				deviceID, err = cmd.Flags().GetString("id")
 				if err != nil {
@@ -188,6 +191,90 @@ func main() {
 						os.Exit(1)
 					}
 					output, err := client.DeviceExecuteReadCommand(deviceID, values)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					contents, err := json.MarshalIndent(output, "", "   ")
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					fmt.Printf("%s\n", contents)
+				},
+			}
+			deviceCmd.AddCommand(cmd)
+		}
+
+		{
+			cmd := &cobra.Command{
+				Use:   "features",
+				Short: "List the features of a device",
+				Long:  ``,
+				Args:  cobra.ExactArgs(0),
+				Run: func(cmd *cobra.Command, args []string) {
+					client, err := buildClient(cmd)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					output, err := client.DeviceFeatures(deviceID)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					contents, err := json.MarshalIndent(output, "", "   ")
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					fmt.Printf("%s\n", contents)
+				},
+			}
+			deviceCmd.AddCommand(cmd)
+		}
+
+		{
+			cmd := &cobra.Command{
+				Use:   "ota",
+				Short: "Show the OTA information",
+				Long:  ``,
+				Args:  cobra.ExactArgs(0),
+				Run: func(cmd *cobra.Command, args []string) {
+					client, err := buildClient(cmd)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					output, err := client.DeviceOTA(deviceID)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					contents, err := json.MarshalIndent(output, "", "   ")
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					fmt.Printf("%s\n", contents)
+				},
+			}
+			deviceCmd.AddCommand(cmd)
+		}
+
+		{
+			cmd := &cobra.Command{
+				Use:   "site",
+				Short: "Show the site information",
+				Long:  ``,
+				Args:  cobra.ExactArgs(0),
+				Run: func(cmd *cobra.Command, args []string) {
+					client, err := buildClient(cmd)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					output, err := client.DeviceSite(deviceID)
 					if err != nil {
 						logrus.Errorf("Error: %v", err)
 						os.Exit(1)
@@ -582,7 +669,7 @@ func main() {
 					logrus.Errorf("Error: %v", err)
 					os.Exit(1)
 				}
-				output, err := client.Raw(method, path, values, nil)
+				output, err := client.Raw(method, "" /*TODO:base*/, path, values, nil)
 				if err != nil {
 					logrus.Errorf("Error: %v", err)
 					os.Exit(1)
@@ -604,7 +691,7 @@ func buildClient(cmd *cobra.Command) (*iaqualink.Client, error) {
 	if err != nil {
 		return nil, err
 	}
-	contents, err := ioutil.ReadFile(configFilename)
+	contents, err := os.ReadFile(configFilename)
 	if err != nil {
 		return nil, err
 	}
@@ -615,6 +702,7 @@ func buildClient(cmd *cobra.Command) (*iaqualink.Client, error) {
 	}
 	client := &iaqualink.Client{
 		AuthenticationToken: config.AuthenticationToken,
+		IDToken:             config.IDToken,
 		UserID:              config.UserID,
 	}
 	return client, nil
