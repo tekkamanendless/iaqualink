@@ -2,9 +2,12 @@
 [![GoDoc](https://godoc.org/github.com/tekkamanendless/iaqualink?status.svg)](https://godoc.org/github.com/tekkamanendless/iaqualink)
 
 # iaqualink
-Go package for talking with iAquaLink pool robots.
+Go package for talking with iAquaLink/Zodiac pool robots.
 
 This package has been built by reverse-engineering the iAquaLink HTTP protocol using `mitmproxy`.
+
+This package is very much in development, and there's a good chance that your specific pool robot is not properly supported.
+If you'd like to help out, set up an `mitmproxy` and send me your traffic.
 
 ## Tested With
 
@@ -17,8 +20,11 @@ Base: https://prod-socket.zodiac-io.com
 ### `/devices`
 This endpoint appears to be the main endpoint for communication (when supported).
 
+Note that in responses, the `metadata` object appears to be a mirror of `state`, but with timestamps where every bottom-level property is.
+
 #### Action: Subscribe
 SEND:
+
 ```
 {
     "action": "subscribe",
@@ -33,6 +39,7 @@ SEND:
 ```
 
 RECEIVE:
+
 ```
 {
     "service": "Authorization",
@@ -160,7 +167,10 @@ RECEIVE:
 ```
 
 #### Action: Start cleaning
+As far as I can tell, the `clientToken` appears to be a random identifier for matching the request with a subsequent event.
+
 SEND:
+
 ```
 {
     "action": "setState",
@@ -217,7 +227,10 @@ RECEIVE:
 ```
 
 #### Action: Stop Cleaning
+As far as I can tell, the `clientToken` appears to be a random identifier for matching the request with a subsequent event.
+
 SEND:
+
 ```
 {
     "action": "setState",
@@ -495,3 +508,31 @@ Cleaning mode:
 * `0B`; floor and walls (high)
 * `0C`; waterline (standard)
 * `0D`; waterline (high) ["custom" in the app]
+
+## Development
+
+### Traffic Capture with `mitmproxy`
+If you'd like to help get your particular pool robot working (or help with a subset of functionality that isn't properly supported), set up an `mitmproxy` and configure your phone's wifi network to use the proxy.
+This will allow you to capture (and decrypt) all of the traffic that goes to and from the Zodiac/iAquaLink APIs.
+
+For information about `mitmproxy`, see: https://mitmproxy.org/
+
+When using `mitmproxy`, please only perform iAquaLink operations and then immediately remove the proxy settings.
+I don't want you to accidentally capture your passwords and credentials from other pieces of software.
+
+If possible, only use a spare phone (or an emulator) that only has iAquaLink installed.
+
+The ideal workflow is the following:
+
+1. Log out of your iAquaLink account.
+2. Start `mitmproxy`.
+3. Configure your phone's wifi to use the proxy.
+4. Open iAquaLink.
+5. Login.
+6. Perform a single action.
+7. Stop `mitmproxy` and save the results.
+8. Configure your phone's wifi to not use the proxy anymore.
+
+This way, the traffic captured only has the login operation and a single operation.
+
+If you perfom multiple operations, please write down which operations you performed in the order that you performed them.
