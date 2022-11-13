@@ -2,15 +2,18 @@ package iaqualink
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
+	"golang.org/x/net/websocket"
 )
 
 // APIKey is the API key to use when talking to the APIs.
@@ -145,6 +148,56 @@ type DeviceOTAOutput struct {
 type DeviceSiteOutput struct {
 	DaylightSavings int    `json:"daylight_savings"` // 1 if daylight saving time; 0 otherwise.
 	TimeZone        string `json:"time_zone"`        // In the format of "[+-][0-9][0-9]:[0-9][0-9]".
+}
+
+type DeviceWebSocketInput struct {
+	Action    string      `json:"action"`
+	Version   int         `json:"version"`
+	Namespace string      `json:"namespace"`
+	Payload   interface{} `json:"payload"`
+	Service   string      `json:"service"`
+	Target    string      `json:"target"`
+}
+
+type DeviceWebSocketOutput struct {
+	Event     string           `json:"event,omitempty"`
+	Namespace string           `json:"namespace,omitempty"`
+	Payload   *json.RawMessage `json:"payload"`
+	Service   string           `json:"service"`
+	Target    string           `json:"target"`
+	Version   int              `json:"version,omitempty"`
+}
+
+type DeviceWebSocketInputSubscribePayload struct {
+	UserID int `json:"userId"`
+}
+
+type DeviceWebSocketOutputSubscribePayload struct {
+	Robot struct {
+		State struct {
+			Reported struct {
+				// TODO: "aws"
+				// TODO: "sn"
+				// TODO: "dt"
+				// TODO: "vr"
+				PayloadVersion int                    `json:"payloadVer"`
+				EboxData       map[string]interface{} `json:"eboxData"`
+				Equipment      map[string]struct {
+					Mode int `json:"mode"`
+					// TODO: Every other field.
+				} `json:"equipment"`
+			} `json:"reported"`
+		} `json:"state"`
+	} `json:"robot"`
+	// TODO: "data"
+	OTA struct {
+		Status string `json:"status"`
+	} `json:"ota"`
+}
+
+type DeviceWebSocketInputSetStatePayload struct {
+	State       map[string]interface{} `json:"state"`
+	ClientToken string                 `json:"clientToken"`
 }
 
 // init initializes the client.
@@ -355,4 +408,188 @@ func (c *Client) DeviceSite(deviceID string) (*DeviceSiteOutput, error) {
 		return nil, err
 	}
 	return &output, nil
+}
+
+// DeviceWebSocket performs an action over the web socket.
+func (c *Client) DeviceWebSocket(deviceID string, actions ...string) (map[string]string, error) {
+	c.init()
+
+	url := strings.Replace(c.WebSocketAPIBase, "https://", "wss://", 1) + "/devices"
+	config, err := websocket.NewConfig(url, c.WebSocketAPIBase)
+	if err != nil {
+		return nil, fmt.Errorf("could not create Web Socket config: %w", err)
+	}
+	config.Header.Set("Authorization", c.IDToken)
+
+	logrus.Debugf("Connecting to Web Socket: %s", url)
+	logrus.Debugf("Config: %+v", config)
+	conn, err := websocket.DialConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("could not connect to Web Socket: %w", err)
+	}
+	defer conn.Close()
+
+	userId, err := strconv.ParseInt(c.UserID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("could not convert user ID to integer: %w", err)
+	}
+	logrus.Debugf("User ID: %d", userId)
+
+	output := map[string]string{}
+
+	subscribeInput := DeviceWebSocketInput{
+		Version:   1,
+		Action:    "subscribe",
+		Namespace: "authorization",
+		Service:   "Authorization",
+		Target:    deviceID,
+		Payload: DeviceWebSocketInputSubscribePayload{
+			UserID: int(userId),
+		},
+	}
+
+	jsonToString := func(value interface{}) string {
+		contents, err := json.Marshal(subscribeInput)
+		if err != nil {
+			return ""
+		}
+		return string(contents)
+	}
+	logrus.Debugf("Writing: %s", jsonToString(subscribeInput))
+
+	err = websocket.JSON.Send(conn, subscribeInput)
+	if err != nil {
+		return nil, fmt.Errorf("could not send to Web Socket: %w", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	for ctx.Err() == nil {
+		var contents string
+		err = websocket.Message.Receive(conn, &contents)
+		if err != nil {
+			return nil, fmt.Errorf("could not receive from Web Socket: %w", err)
+		}
+		logrus.Debugf("Received: %s", contents)
+		if len(contents) == 0 {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+
+		var subscribeOutput DeviceWebSocketOutput
+		err = json.Unmarshal([]byte(contents), &subscribeOutput)
+		if err != nil {
+			return nil, fmt.Errorf("could not unmarshal subscription response from JSON: %w", err)
+		}
+		if subscribeOutput.Service != subscribeInput.Service {
+			logrus.Debugf("Service does not match: got %s (expected %s)", subscribeOutput.Service, subscribeInput.Service)
+			continue
+		}
+		if subscribeOutput.Namespace != subscribeInput.Namespace {
+			logrus.Debugf("Namespace does not match: got %s (expected %s)", subscribeOutput.Namespace, subscribeInput.Namespace)
+			continue
+		}
+		if subscribeOutput.Target != subscribeInput.Target {
+			logrus.Debugf("Target does not match: got %s (expected %s)", subscribeOutput.Target, subscribeInput.Target)
+			continue
+		}
+
+		var subscribeOutputPayload DeviceWebSocketOutputSubscribePayload
+		err = json.Unmarshal(*subscribeOutput.Payload, &subscribeOutputPayload)
+		if err != nil {
+			return nil, fmt.Errorf("could not unmarshal subscription response payload from JSON: %w", err)
+		}
+
+		output["_equipment_length"] = fmt.Sprintf("%d", len(subscribeOutputPayload.Robot.State.Reported.Equipment))
+		for key, value := range subscribeOutputPayload.Robot.State.Reported.Equipment {
+			output["_robot_key"] = key
+			output["mode"] = fmt.Sprintf("%d", value.Mode)
+			break
+		}
+
+		break
+	}
+
+	for _, action := range actions {
+		logrus.Debugf("Performing action: %s", action)
+		switch action {
+		case "start", "stop":
+			mode := 0
+			if action == "start" {
+				mode = 1
+			}
+
+			subscribeInput := DeviceWebSocketInput{
+				Version:   1,
+				Action:    "setState",
+				Namespace: "cyclonext",
+				Service:   "StateController",
+				Target:    deviceID,
+				Payload: DeviceWebSocketInputSetStatePayload{
+					State: map[string]interface{}{
+						"desired": map[string]interface{}{
+							"equipment": map[string]interface{}{
+								output["_robot_key"]: map[string]interface{}{
+									"mode": mode,
+								},
+							},
+						},
+					},
+				},
+			}
+
+			jsonToString := func(value interface{}) string {
+				contents, err := json.Marshal(subscribeInput)
+				if err != nil {
+					return ""
+				}
+				return string(contents)
+			}
+			logrus.Debugf("Writing: %s", jsonToString(subscribeInput))
+
+			err = websocket.JSON.Send(conn, subscribeInput)
+			if err != nil {
+				return nil, fmt.Errorf("could not send to Web Socket: %w", err)
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+			for ctx.Err() == nil {
+				var contents string
+				err = websocket.Message.Receive(conn, &contents)
+				if err != nil {
+					return nil, fmt.Errorf("could not receive from Web Socket: %w", err)
+				}
+				logrus.Debugf("Received: %s", contents)
+				if len(contents) == 0 {
+					time.Sleep(100 * time.Millisecond)
+					continue
+				}
+
+				var subscribeOutput DeviceWebSocketOutput
+				err = json.Unmarshal([]byte(contents), &subscribeOutput)
+				if err != nil {
+					return nil, fmt.Errorf("could not unmarshal subscription response from JSON: %w", err)
+				}
+				if subscribeOutput.Event != "StateReported" {
+					logrus.Debugf("Event does not match: got %s (expected %s)", subscribeOutput.Event, "StateReported")
+					continue
+				}
+				if subscribeOutput.Service != "StateStreamer" {
+					logrus.Debugf("Service does not match: got %s (expected %s)", subscribeOutput.Service, "StateStreamer")
+					continue
+				}
+				if subscribeOutput.Target != subscribeInput.Target {
+					logrus.Debugf("Target does not match: got %s (expected %s)", subscribeOutput.Target, subscribeInput.Target)
+					continue
+				}
+
+				// TODO: Parse the response and check to see that "mode" was set correctly.
+				output["mode"] = fmt.Sprintf("%d", mode)
+				break
+			}
+		}
+	}
+
+	return output, nil
 }

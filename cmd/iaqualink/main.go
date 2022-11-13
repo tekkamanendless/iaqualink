@@ -147,6 +147,7 @@ func main() {
 
 	{
 		var deviceID string
+		var deviceType string
 		deviceCmd := &cobra.Command{
 			Use:   "device",
 			Short: "Device commands",
@@ -164,9 +165,37 @@ func main() {
 					logrus.Errorf("Missing device ID; please specify one with \"--id\".")
 					os.Exit(1)
 				}
+
+				deviceType, err = cmd.Flags().GetString("type")
+				if err != nil {
+					logrus.Errorf("Error: %v", err)
+					os.Exit(1)
+				}
+
+				if deviceType == "" {
+					client, err := buildClient(cmd)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					output, err := client.ListDevices()
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					for _, device := range output {
+						logrus.Debugf("Found device %s (looking for %s)", device.SerialNumber, deviceID)
+						if device.SerialNumber == deviceID {
+							deviceType = device.DeviceType
+							break
+						}
+					}
+				}
+				logrus.Debugf("Device type: %s", deviceType)
 			},
 		}
 		deviceCmd.PersistentFlags().String("id", "", "The ID of the device")
+		deviceCmd.PersistentFlags().String("type", "", "Override the type of the device")
 		rootCmd.AddCommand(deviceCmd)
 
 		{
@@ -176,6 +205,11 @@ func main() {
 				Long:  ``,
 				Args:  cobra.MinimumNArgs(0),
 				Run: func(cmd *cobra.Command, args []string) {
+					if deviceType != iaqualink.DeviceTypeI2DRobot {
+						logrus.Errorf("Expected device type: %s", iaqualink.DeviceTypeI2DRobot)
+						os.Exit(1)
+					}
+
 					values := url.Values{}
 
 					for _, parameter := range args[0:] {
@@ -213,6 +247,11 @@ func main() {
 				Long:  ``,
 				Args:  cobra.ExactArgs(0),
 				Run: func(cmd *cobra.Command, args []string) {
+					if deviceType != iaqualink.DeviceTypeCycloneXT {
+						logrus.Errorf("Expected device type: %s", iaqualink.DeviceTypeCycloneXT)
+						os.Exit(1)
+					}
+
 					client, err := buildClient(cmd)
 					if err != nil {
 						logrus.Errorf("Error: %v", err)
@@ -241,6 +280,11 @@ func main() {
 				Long:  ``,
 				Args:  cobra.ExactArgs(0),
 				Run: func(cmd *cobra.Command, args []string) {
+					if deviceType != iaqualink.DeviceTypeCycloneXT {
+						logrus.Errorf("Expected device type: %s", iaqualink.DeviceTypeCycloneXT)
+						os.Exit(1)
+					}
+
 					client, err := buildClient(cmd)
 					if err != nil {
 						logrus.Errorf("Error: %v", err)
@@ -269,6 +313,11 @@ func main() {
 				Long:  ``,
 				Args:  cobra.ExactArgs(0),
 				Run: func(cmd *cobra.Command, args []string) {
+					if deviceType != iaqualink.DeviceTypeCycloneXT {
+						logrus.Errorf("Expected device type: %s", iaqualink.DeviceTypeCycloneXT)
+						os.Exit(1)
+					}
+
 					client, err := buildClient(cmd)
 					if err != nil {
 						logrus.Errorf("Error: %v", err)
@@ -297,26 +346,42 @@ func main() {
 				Long:  ``,
 				Args:  cobra.ExactArgs(0),
 				Run: func(cmd *cobra.Command, args []string) {
-					values := url.Values{}
-					values.Set("request", "0A1240")
-					values.Set("timeout", "800")
-
 					client, err := buildClient(cmd)
 					if err != nil {
 						logrus.Errorf("Error: %v", err)
 						os.Exit(1)
 					}
-					output, err := client.DeviceExecuteReadCommand(deviceID, values)
-					if err != nil {
-						logrus.Errorf("Error: %v", err)
-						os.Exit(1)
+
+					switch deviceType {
+					case iaqualink.DeviceTypeI2DRobot:
+						values := url.Values{}
+						values.Set("request", "0A1240")
+						values.Set("timeout", "800")
+
+						output, err := client.DeviceExecuteReadCommand(deviceID, values)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						contents, err := json.MarshalIndent(output, "", "   ")
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						fmt.Printf("%s\n", contents)
+					case iaqualink.DeviceTypeCycloneXT:
+						output, err := client.DeviceWebSocket(deviceID, "start")
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						contents, err := json.MarshalIndent(output, "", "   ")
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						fmt.Printf("%s\n", contents)
 					}
-					contents, err := json.MarshalIndent(output, "", "   ")
-					if err != nil {
-						logrus.Errorf("Error: %v", err)
-						os.Exit(1)
-					}
-					fmt.Printf("%s\n", contents)
 				},
 			}
 			deviceCmd.AddCommand(cmd)
@@ -329,26 +394,42 @@ func main() {
 				Long:  ``,
 				Args:  cobra.ExactArgs(0),
 				Run: func(cmd *cobra.Command, args []string) {
-					values := url.Values{}
-					values.Set("request", "0A1210")
-					values.Set("timeout", "800")
-
 					client, err := buildClient(cmd)
 					if err != nil {
 						logrus.Errorf("Error: %v", err)
 						os.Exit(1)
 					}
-					output, err := client.DeviceExecuteReadCommand(deviceID, values)
-					if err != nil {
-						logrus.Errorf("Error: %v", err)
-						os.Exit(1)
+
+					switch deviceType {
+					case iaqualink.DeviceTypeI2DRobot:
+						values := url.Values{}
+						values.Set("request", "0A1210")
+						values.Set("timeout", "800")
+
+						output, err := client.DeviceExecuteReadCommand(deviceID, values)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						contents, err := json.MarshalIndent(output, "", "   ")
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						fmt.Printf("%s\n", contents)
+					case iaqualink.DeviceTypeCycloneXT:
+						output, err := client.DeviceWebSocket(deviceID, "stop")
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						contents, err := json.MarshalIndent(output, "", "   ")
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						fmt.Printf("%s\n", contents)
 					}
-					contents, err := json.MarshalIndent(output, "", "   ")
-					if err != nil {
-						logrus.Errorf("Error: %v", err)
-						os.Exit(1)
-					}
-					fmt.Printf("%s\n", contents)
 				},
 			}
 			deviceCmd.AddCommand(cmd)
@@ -361,190 +442,218 @@ func main() {
 				Long:  ``,
 				Args:  cobra.ExactArgs(0),
 				Run: func(cmd *cobra.Command, args []string) {
-					values := url.Values{}
-					values.Set("request", "0A11")
-					values.Set("timeout", "800")
-
 					client, err := buildClient(cmd)
 					if err != nil {
 						logrus.Errorf("Error: %v", err)
 						os.Exit(1)
 					}
-					output, err := client.DeviceExecuteReadCommand(deviceID, values)
-					if err != nil {
-						logrus.Errorf("Error: %v", err)
-						os.Exit(1)
+
+					switch deviceType {
+					case iaqualink.DeviceTypeI2DRobot:
+						values := url.Values{}
+						values.Set("request", "0A11")
+						values.Set("timeout", "800")
+
+						output, err := client.DeviceExecuteReadCommand(deviceID, values)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						results := map[string]interface{}{}
+						results["_response"] = output.Command.Response
+						if len(output.Command.Response) == len("001102000BD18FD305E407021F43090F4570") {
+							input := output.Command.Response
+
+							firstByteString := input[0:2]
+							input = input[2:]
+							firstByte, err := parseNumberFromLittleEndianHexadecimal(firstByteString)
+							if err != nil {
+								logrus.Errorf("Error: %v", err)
+								os.Exit(1)
+							}
+							if firstByte != 0x00 {
+								logrus.Warnf("Unexpected first byte: %x", firstByte)
+							}
+
+							secondByteString := input[0:2]
+							input = input[2:]
+							secondByte, err := parseNumberFromLittleEndianHexadecimal(secondByteString)
+							if err != nil {
+								logrus.Errorf("Error: %v", err)
+								os.Exit(1)
+							}
+							if secondByte != 0x11 {
+								logrus.Warnf("Unexpected second byte: %x", secondByte)
+							}
+
+							stateString := input[0:2]
+							input = input[2:]
+							state, err := parseNumberFromLittleEndianHexadecimal(stateString)
+							if err != nil {
+								logrus.Errorf("Error: %v", err)
+								os.Exit(1)
+							}
+
+							results["state"] = state
+							var stateName string
+							switch state {
+							case 0x01:
+								stateName = "stopped"
+							case 0x02:
+								stateName = "running"
+							case 0x03:
+								stateName = "finished"
+							case 0x04:
+								stateName = "running"
+							case 0x0A:
+								stateName = "lift system"
+							case 0x0B:
+								stateName = "remote control"
+							case 0x0C:
+								stateName = "finishing"
+							case 0x0D:
+								stateName = "error"
+							case 0x0E:
+								stateName = "error"
+							default:
+								stateName = "TODO:" + stateString
+							}
+							results["state_name"] = stateName
+
+							errorStateString := input[0:2]
+							input = input[2:]
+							errorState, err := parseNumberFromLittleEndianHexadecimal(errorStateString)
+							if err != nil {
+								logrus.Errorf("Error: %v", err)
+								os.Exit(1)
+							}
+
+							results["error"] = errorState
+							var errorStateName string
+							switch errorState {
+							case 0x00:
+								errorStateName = "none"
+							case 0x05:
+								errorStateName = "drive motor consumption right"
+							case 0x08:
+								errorStateName = "out of water"
+							case 0x0a:
+								errorStateName = "communication"
+							default:
+								errorStateName = "TODO:" + errorStateString
+							}
+							results["error_name"] = errorStateName
+
+							cleaningModeString := input[0:2]
+							input = input[2:]
+							cleaningMode, err := parseNumberFromLittleEndianHexadecimal(cleaningModeString)
+							if err != nil {
+								logrus.Errorf("Error: %v", err)
+								os.Exit(1)
+							}
+
+							results["cleaning_mode"] = cleaningMode
+							var cleaningModeName string
+							switch cleaningMode {
+							case 0x08:
+								cleaningModeName = "floor (standard)"
+							case 0x09:
+								cleaningModeName = "floor (high)"
+							case 0x0A:
+								cleaningModeName = "floor and walls (standard)"
+							case 0x0B:
+								cleaningModeName = "floor and walls (high)"
+							case 0x0C:
+								cleaningModeName = "waterline (standard)"
+							case 0x0D:
+								cleaningModeName = "waterline (high)"
+							default:
+								cleaningModeName = "TODO:" + cleaningModeString
+							}
+							results["cleaning_mode_name"] = cleaningModeName
+
+							minutesRemainingString := input[0:2]
+							input = input[2:]
+							minutesRemaining, err := parseNumberFromLittleEndianHexadecimal(minutesRemainingString)
+							if err != nil {
+								logrus.Errorf("Error: %v", err)
+								os.Exit(1)
+							}
+							results["minutes_remaining"] = minutesRemaining
+
+							uptimeString := input[0:6]
+							input = input[6:]
+							uptime, err := parseNumberFromLittleEndianHexadecimal(uptimeString)
+							if err != nil {
+								logrus.Errorf("Error: %v", err)
+								os.Exit(1)
+							}
+							results["uptime_minutes"] = uptime
+
+							runtimeString := input[0:6]
+							input = input[6:]
+							runtime, err := parseNumberFromLittleEndianHexadecimal(runtimeString)
+							if err != nil {
+								logrus.Errorf("Error: %v", err)
+								os.Exit(1)
+							}
+							results["runtime_minutes"] = runtime
+
+							unknown1String := input[0:6]
+							input = input[6:]
+							unknown1, err := parseNumberFromLittleEndianHexadecimal(unknown1String)
+							if err != nil {
+								logrus.Errorf("Error: %v", err)
+								os.Exit(1)
+							}
+							results["unknown1"] = unknown1
+
+							unknown2String := input[0:6]
+							input = input[6:]
+							unknown2, err := parseNumberFromLittleEndianHexadecimal(unknown2String)
+							if err != nil {
+								logrus.Errorf("Error: %v", err)
+								os.Exit(1)
+							}
+							results["unknown2"] = unknown2
+
+							if len(input) > 0 {
+								logrus.Warnf("Extra data in the response: %s", input)
+							}
+						} else {
+							logrus.Warnf("Unexpected response length: %d", len(output.Command.Response))
+						}
+						contents, err := json.MarshalIndent(results, "", "   ")
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						fmt.Printf("%s\n", contents)
+					case iaqualink.DeviceTypeCycloneXT:
+						output, err := client.DeviceWebSocket(deviceID)
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+
+						results := map[string]interface{}{}
+						if value := output["mode"]; value != "" {
+							results["mode"] = value
+							switch fmt.Sprintf("%v", value) {
+							case "0":
+								results["mode_name"] = "stopped"
+							case "1":
+								results["mode_name"] = "running"
+							}
+						}
+
+						contents, err := json.MarshalIndent(results, "", "   ")
+						if err != nil {
+							logrus.Errorf("Error: %v", err)
+							os.Exit(1)
+						}
+						fmt.Printf("%s\n", contents)
 					}
-					results := map[string]interface{}{}
-					results["_response"] = output.Command.Response
-					if len(output.Command.Response) == len("001102000BD18FD305E407021F43090F4570") {
-						input := output.Command.Response
-
-						firstByteString := input[0:2]
-						input = input[2:]
-						firstByte, err := parseNumberFromLittleEndianHexadecimal(firstByteString)
-						if err != nil {
-							logrus.Errorf("Error: %v", err)
-							os.Exit(1)
-						}
-						if firstByte != 0x00 {
-							logrus.Warnf("Unexpected first byte: %x", firstByte)
-						}
-
-						secondByteString := input[0:2]
-						input = input[2:]
-						secondByte, err := parseNumberFromLittleEndianHexadecimal(secondByteString)
-						if err != nil {
-							logrus.Errorf("Error: %v", err)
-							os.Exit(1)
-						}
-						if secondByte != 0x11 {
-							logrus.Warnf("Unexpected second byte: %x", secondByte)
-						}
-
-						stateString := input[0:2]
-						input = input[2:]
-						state, err := parseNumberFromLittleEndianHexadecimal(stateString)
-						if err != nil {
-							logrus.Errorf("Error: %v", err)
-							os.Exit(1)
-						}
-
-						results["state"] = state
-						var stateName string
-						switch state {
-						case 0x01:
-							stateName = "stopped"
-						case 0x02:
-							stateName = "running"
-						case 0x03:
-							stateName = "finished"
-						case 0x04:
-							stateName = "running"
-						case 0x0A:
-							stateName = "lift system"
-						case 0x0B:
-							stateName = "remote control"
-						case 0x0C:
-							stateName = "finishing"
-						case 0x0D:
-							stateName = "error"
-						case 0x0E:
-							stateName = "error"
-						default:
-							stateName = "TODO:" + stateString
-						}
-						results["state_name"] = stateName
-
-						errorStateString := input[0:2]
-						input = input[2:]
-						errorState, err := parseNumberFromLittleEndianHexadecimal(errorStateString)
-						if err != nil {
-							logrus.Errorf("Error: %v", err)
-							os.Exit(1)
-						}
-
-						results["error"] = errorState
-						var errorStateName string
-						switch errorState {
-						case 0x00:
-							errorStateName = "none"
-						case 0x05:
-							errorStateName = "drive motor consumption right"
-						case 0x08:
-							errorStateName = "out of water"
-						case 0x0a:
-							errorStateName = "communication"
-						default:
-							errorStateName = "TODO:" + errorStateString
-						}
-						results["error_name"] = errorStateName
-
-						cleaningModeString := input[0:2]
-						input = input[2:]
-						cleaningMode, err := parseNumberFromLittleEndianHexadecimal(cleaningModeString)
-						if err != nil {
-							logrus.Errorf("Error: %v", err)
-							os.Exit(1)
-						}
-
-						results["cleaning_mode"] = cleaningMode
-						var cleaningModeName string
-						switch cleaningMode {
-						case 0x08:
-							cleaningModeName = "floor (standard)"
-						case 0x09:
-							cleaningModeName = "floor (high)"
-						case 0x0A:
-							cleaningModeName = "floor and walls (standard)"
-						case 0x0B:
-							cleaningModeName = "floor and walls (high)"
-						case 0x0C:
-							cleaningModeName = "waterline (standard)"
-						case 0x0D:
-							cleaningModeName = "waterline (high)"
-						default:
-							cleaningModeName = "TODO:" + cleaningModeString
-						}
-						results["cleaning_mode_name"] = cleaningModeName
-
-						minutesRemainingString := input[0:2]
-						input = input[2:]
-						minutesRemaining, err := parseNumberFromLittleEndianHexadecimal(minutesRemainingString)
-						if err != nil {
-							logrus.Errorf("Error: %v", err)
-							os.Exit(1)
-						}
-						results["minutes_remaining"] = minutesRemaining
-
-						uptimeString := input[0:6]
-						input = input[6:]
-						uptime, err := parseNumberFromLittleEndianHexadecimal(uptimeString)
-						if err != nil {
-							logrus.Errorf("Error: %v", err)
-							os.Exit(1)
-						}
-						results["uptime_minutes"] = uptime
-
-						runtimeString := input[0:6]
-						input = input[6:]
-						runtime, err := parseNumberFromLittleEndianHexadecimal(runtimeString)
-						if err != nil {
-							logrus.Errorf("Error: %v", err)
-							os.Exit(1)
-						}
-						results["runtime_minutes"] = runtime
-
-						unknown1String := input[0:6]
-						input = input[6:]
-						unknown1, err := parseNumberFromLittleEndianHexadecimal(unknown1String)
-						if err != nil {
-							logrus.Errorf("Error: %v", err)
-							os.Exit(1)
-						}
-						results["unknown1"] = unknown1
-
-						unknown2String := input[0:6]
-						input = input[6:]
-						unknown2, err := parseNumberFromLittleEndianHexadecimal(unknown2String)
-						if err != nil {
-							logrus.Errorf("Error: %v", err)
-							os.Exit(1)
-						}
-						results["unknown2"] = unknown2
-
-						if len(input) > 0 {
-							logrus.Warnf("Extra data in the response: %s", input)
-						}
-					} else {
-						logrus.Warnf("Unexpected response length: %d", len(output.Command.Response))
-					}
-					contents, err := json.MarshalIndent(results, "", "   ")
-					if err != nil {
-						logrus.Errorf("Error: %v", err)
-						os.Exit(1)
-					}
-					fmt.Printf("%s\n", contents)
 				},
 			}
 			deviceCmd.AddCommand(cmd)
@@ -557,6 +666,11 @@ func main() {
 				Long:  ``,
 				Args:  cobra.ExactArgs(0),
 				Run: func(cmd *cobra.Command, args []string) {
+					if deviceType != iaqualink.DeviceTypeI2DRobot {
+						logrus.Errorf("Expected device type: %s", iaqualink.DeviceTypeI2DRobot)
+						os.Exit(1)
+					}
+
 					values := url.Values{}
 					values.Set("request", "0A0D")
 					values.Set("timeout", "800")

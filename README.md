@@ -15,8 +15,9 @@ This package has been built by reverse-engineering the iAquaLink HTTP protocol u
 Base: https://prod-socket.zodiac-io.com
 
 ### `/devices`
-TODO
+This endpoint appears to be the main endpoint for communication (when supported).
 
+#### Action: Subscribe
 SEND:
 ```
 {
@@ -158,6 +159,7 @@ RECEIVE:
 }
 ```
 
+#### Action: Start cleaning
 SEND:
 ```
 {
@@ -211,6 +213,30 @@ RECEIVE:
         "timestamp": 1663228439,
         "clientToken": "${userId}|AuWGRMyOKDfMvkU4vhK5wj|l8KVqVChow1lV69CcBad0b"
     }
+}
+```
+
+#### Action: Stop Cleaning
+SEND:
+```
+{
+    "action": "setState",
+    "version": 1,
+    "namespace": "cyclonext",
+    "payload": {
+        "state": {
+            "desired": {
+                "equipment": {
+                    "robot.1": {
+                        "mode": 0
+                    }
+                }
+            }
+        },
+        "clientToken": "${userId}|AuWGRMyOKDfMvkU4vhK5wj|CUXkLn7Dyb0OIplLCBVtAQ"
+    },
+    "service": "StateController",
+    "target": "KK2100006435"
 }
 ```
 
