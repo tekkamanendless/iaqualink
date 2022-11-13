@@ -2,16 +2,280 @@
 [![GoDoc](https://godoc.org/github.com/tekkamanendless/iaqualink?status.svg)](https://godoc.org/github.com/tekkamanendless/iaqualink)
 
 # iaqualink
-Go package for talking with iAquaLink pool robots.
+Go package for talking with iAquaLink/Zodiac pool robots.
 
 This package has been built by reverse-engineering the iAquaLink HTTP protocol using `mitmproxy`.
 
+This package is very much in development, and there's a good chance that your specific pool robot is not properly supported.
+If you'd like to help out, set up an `mitmproxy` and send me your traffic.
+
 ## Tested With
 
-* Polaris P965IQ
+* Polaris P965IQ (device type `i2d_robot`)
+* Zodiac Voyager RE 4400 iQ (device type `cyclonext`)
+
+## Web Socket API
+Base: https://prod-socket.zodiac-io.com
+
+### `/devices`
+This endpoint appears to be the main endpoint for communication (when supported).
+
+Note that in responses, the `metadata` object appears to be a mirror of `state`, but with timestamps where every bottom-level property is.
+
+#### Action: Subscribe
+SEND:
+
+```
+{
+    "action": "subscribe",
+    "version": 1,
+    "namespace": "authorization",
+    "payload": {
+        "userId": ${userId}
+    },
+    "service": "Authorization",
+    "target": "${device}"
+}
+```
+
+RECEIVE:
+
+```
+{
+    "service": "Authorization",
+    "target": "${device}",
+    "namespace": "authorization",
+    "payload": {
+        "robot": {
+            "state": {
+                "reported": {
+                    "aws": {
+                        "status": "connected",
+                        "timestamp": 1663228298244,
+                        "session_id": "11ae4f85-2f9b-4b82-b726-3528c876ea0e"
+                    },
+                    "sn": "${device}",
+                    "dt": "cyc",
+                    "vr": "V21C10",
+                    "payloadVer": 1,
+                    "eboxData": {
+                        "controlBoxSn": "${some-serial-number}",
+                        "controlBoxPn": "${some-part-number}",
+                        "completeCleanerSn": "${some-serial-number}",
+                        "completeCleanerPn": "${some-part-number}",
+                        "powerSupplySn": "${some-serial-number}",
+                        "motorBlockSn": "${some-serial-number}"
+                    },
+                    "equipment": {
+                        "robot.1": {
+                            "mode": 0,
+                            "direction": 0,
+                            "cycle": 3,
+                            "cycleStartTime": 1663140417,
+                            "canister": 0,
+                            "logger": 0,
+                            "firstSmrtFlag": 1,
+                            "stepper": 0,
+                            "stepperAdjTime": 15,
+                            "durations": {
+                                "waterTim": 45,
+                                "quickTim": 90,
+                                "smartTim": 0,
+                                "deepTim": 150,
+                                "customTim": 75,
+                                "firstSmartTim": 150,
+                                "scanTim": 30
+                            },
+                            "customCyc": {
+                                "type": 0,
+                                "intensity": 0
+                            },
+                            "errors": {
+                                "timestamp": 1663097347,
+                                "code":0
+                            },
+                            "vr": "V21E11",
+                            "equipmentId": "ND21015155",
+                            "totRunTime": 13410
+                        }
+                    }
+                }
+            },
+            "metadata": {
+                "reported": {
+                    "aws": {
+                        "status": { "timestamp": 1663228298 },
+                        "timestamp": { "timestamp": 1663228298 },
+                        "session_id": { "timestamp": 1663228298 }
+                    },
+                    "sn": { "timestamp": 1662828488 },
+                    "dt": { "timestamp": 1662828488 },
+                    "vr": { "timestamp": 1662828488 },
+                    "payloadVer": { "timestamp": 1662828488 },
+                    "eboxData": {
+                        "controlBoxSn": { "timestamp": 1662828488 },
+                        "controlBoxPn": { "timestamp": 1662828488 },
+                        "completeCleanerSn": { "timestamp": 1662828488 },
+                        "completeCleanerPn": { "timestamp": 1662828488 },
+                        "powerSupplySn": { "timestamp": 1662828488 },
+                        "motorBlockSn": { "timestamp":1662828488 }
+                    },
+                    "equipment": {
+                        "robot.1": {
+                            "mode": { "timestamp": 1663228321 },
+                            "direction": { "timestamp": 1662828488 },
+                            "cycle": { "timestamp": 1663228321 },
+                            "cycleStartTime": { "timestamp": 1663140419 },
+                            "canister": { "timestamp": 1662828488 },
+                            "logger": { "timestamp": 1662828488 },
+                            "firstSmrtFlag": { "timestamp": 1662828488 },
+                            "stepper": { "timestamp": 1662828488 },
+                            "stepperAdjTime": { "timestamp":1662828488 },
+                            "durations": {
+                                "waterTim": { "timestamp": 1662828488 },
+                                "quickTim": { "timestamp": 1662828488 },
+                                "smartTim": { "timestamp": 1662828488 },
+                                "deepTim": { "timestamp": 1662828488 },
+                                "customTim": { "timestamp": 1662828488 },
+                                "firstSmartTim": { "timestamp": 1662828488 },
+                                "scanTim": { "timestamp": 1662828488 }
+                            },
+                            "customCyc": {
+                                "type": { "timestamp": 1662828488 },
+                                "intensity": { "timestamp": 1662828488 }
+                            },
+                            "errors": {
+                                "timestamp": { "timestamp": 1663140402 },
+                                "code": { "timestamp": 1663140402 }
+                            },
+                            "vr": { "timestamp": 1662828489 },
+                            "equipmentId": { "timestamp": 1662828489 },
+                            "totRunTime": { "timestamp": 1663149719 }
+                        }
+                    }
+                }
+            },
+            "version": 230169,
+            "timestamp": 1663228422
+        },
+        "data": [],
+        "ota": {
+            "status": "UP_TO_DATE"
+        }
+    }
+}
+```
+
+#### Action: Start cleaning
+As far as I can tell, the `clientToken` appears to be a random identifier for matching the request with a subsequent event.
+
+SEND:
+
+```
+{
+    "action": "setState",
+    "version": 1,
+    "namespace": "cyclonext",
+    "payload": {
+        "state": {
+            "desired": {
+                "equipment": {
+                    "robot.1": {
+                        "mode": 1
+                    }
+                }
+            }
+        },
+        "clientToken": "${userId}|AuWGRMyOKDfMvkU4vhK5wj|l8KVqVChow1lV69CcBad0b"
+    },
+    "service": "StateController",
+    "target": "${device}"
+}
+```
+
+RECEIVE:
+```
+{
+    "service": "StateStreamer",
+    "target": "${device}",
+    "event": "StateReported",
+    "version": 1,
+    "payload": {
+        "state": {
+            "desired": {
+                "equipment": {
+                    "robot.1": {
+                        "mode": 1
+                    }
+                }
+            }
+        },
+        "metadata": {
+            "desired": {
+                "equipment": {
+                    "robot.1": {
+                        "mode": { "timestamp": 1663228439 }
+                    }
+                }
+            }
+        },
+        "version": 230170,
+        "timestamp": 1663228439,
+        "clientToken": "${userId}|AuWGRMyOKDfMvkU4vhK5wj|l8KVqVChow1lV69CcBad0b"
+    }
+}
+```
+
+#### Action: Stop Cleaning
+As far as I can tell, the `clientToken` appears to be a random identifier for matching the request with a subsequent event.
+
+SEND:
+
+```
+{
+    "action": "setState",
+    "version": 1,
+    "namespace": "cyclonext",
+    "payload": {
+        "state": {
+            "desired": {
+                "equipment": {
+                    "robot.1": {
+                        "mode": 0
+                    }
+                }
+            }
+        },
+        "clientToken": "${userId}|AuWGRMyOKDfMvkU4vhK5wj|CUXkLn7Dyb0OIplLCBVtAQ"
+    },
+    "service": "StateController",
+    "target": "KK2100006435"
+}
+```
 
 ## Zodiac API
 Base: https://prod.zodiac-io.com
+
+### `/devices/v2/${device}/features`
+TODO
+
+Headers:
+
+* `Authorization`: the ID token.
+
+### `/devices/v2/${device}/info`
+TODO
+
+Headers:
+
+* `Authorization`: the ID token.
+
+### `/devices/v2/${device}/site`
+TODO
+
+Headers:
+
+* `Authorization`: the ID token.
 
 ### `/users/v1/login`
 This logs you into the Zodiac API and provides you with a user ID and authentication token.
@@ -100,7 +364,7 @@ Commands:
     * `4C`; ASCII "L" - left
     * `52`; ASCII "R" - right
 
-## Responses
+## iAquaLink API Command Responses
 The response is plain text representing hexadecimal data (no spaces).
 
 Response code format:
@@ -245,3 +509,30 @@ Cleaning mode:
 * `0C`; waterline (standard)
 * `0D`; waterline (high) ["custom" in the app]
 
+## Development
+
+### Traffic Capture with `mitmproxy`
+If you'd like to help get your particular pool robot working (or help with a subset of functionality that isn't properly supported), set up an `mitmproxy` and configure your phone's wifi network to use the proxy.
+This will allow you to capture (and decrypt) all of the traffic that goes to and from the Zodiac/iAquaLink APIs.
+
+For information about `mitmproxy`, see: https://mitmproxy.org/
+
+When using `mitmproxy`, please only perform iAquaLink operations and then immediately remove the proxy settings.
+I don't want you to accidentally capture your passwords and credentials from other pieces of software.
+
+If possible, only use a spare phone (or an emulator) that only has iAquaLink installed.
+
+The ideal workflow is the following:
+
+1. Log out of your iAquaLink account.
+2. Start `mitmproxy`.
+3. Configure your phone's wifi to use the proxy.
+4. Open iAquaLink.
+5. Login.
+6. Perform a single action.
+7. Stop `mitmproxy` and save the results.
+8. Configure your phone's wifi to not use the proxy anymore.
+
+This way, the traffic captured only has the login operation and a single operation.
+
+If you perfom multiple operations, please write down which operations you performed in the order that you performed them.
