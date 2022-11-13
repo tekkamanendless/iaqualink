@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -510,6 +511,16 @@ func (c *Client) DeviceWebSocket(deviceID string, actions ...string) (map[string
 		break
 	}
 
+	generateThing := func() string {
+		letters := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+		b := make([]rune, 22)
+		for i := range b {
+			b[i] = letters[rand.Intn(len(letters))]
+		}
+		return string(b)
+	}
+
 	for _, action := range actions {
 		logrus.Debugf("Performing action: %s", action)
 		switch action {
@@ -518,6 +529,9 @@ func (c *Client) DeviceWebSocket(deviceID string, actions ...string) (map[string
 			if action == "start" {
 				mode = 1
 			}
+
+			thing1 := generateThing()
+			thing2 := generateThing()
 
 			subscribeInput := DeviceWebSocketInput{
 				Version:   1,
@@ -535,6 +549,7 @@ func (c *Client) DeviceWebSocket(deviceID string, actions ...string) (map[string
 							},
 						},
 					},
+					ClientToken: fmt.Sprintf("%d|%s|%s", userId, thing1, thing2),
 				},
 			}
 
@@ -585,6 +600,7 @@ func (c *Client) DeviceWebSocket(deviceID string, actions ...string) (map[string
 				}
 
 				// TODO: Parse the response and check to see that "mode" was set correctly.
+				// TODO: We should probably check to see that the "ClientToken" matches; that's probably what it's using to verify the command.
 				output["mode"] = fmt.Sprintf("%d", mode)
 				break
 			}
