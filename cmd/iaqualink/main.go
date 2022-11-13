@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
@@ -60,7 +61,9 @@ func main() {
 				`Once logged in, list your devices using the "devices" command.  Make note of the serial`,
 				`number of the device that you'd like to use.`,
 				``,
-				`Finally, use the "device" subcommand to perform actions on a device.`,
+				`Finally, use the "device" subcommand to perform actions on a device.  If you have more`,
+				`than one device, you'll need to specify the serial number of the one that you want using`,
+				`the --id option.`,
 			},
 			"\n",
 		),
@@ -196,12 +199,21 @@ func main() {
 					logrus.Errorf("Error: %v", err)
 					os.Exit(1)
 				}
+
 				contents, err := json.MarshalIndent(output, "", "   ")
 				if err != nil {
 					logrus.Errorf("Error: %v", err)
 					os.Exit(1)
 				}
-				fmt.Printf("%s\n", contents)
+				logrus.Debugf("Output: %s", contents)
+
+				t := table.NewWriter()
+				t.SetOutputMirror(os.Stdout)
+				t.AppendHeader(table.Row{"Serial Number", "Name", "Type"})
+				for _, device := range output {
+					t.AppendRow(table.Row{device.SerialNumber, device.Name, device.DeviceType})
+				}
+				t.Render()
 			},
 		}
 		rootCmd.AddCommand(cmd)
@@ -223,9 +235,31 @@ func main() {
 					logrus.Errorf("Error: %v", err)
 					os.Exit(1)
 				}
+				// If no device was specified, see if there's only one possibility.
+				// If so, use that.  Otherwise, fail with an error.
 				if deviceID == "" {
-					logrus.Errorf("Missing device ID; please specify one with \"--id\".")
-					os.Exit(1)
+					client, err := buildClient(cmd)
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					output, err := client.ListDevices()
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					if len(output) == 1 {
+						for _, device := range output {
+							logrus.Debugf("Found device %s", device.SerialNumber)
+							deviceID = device.SerialNumber
+							break
+						}
+					}
+
+					if deviceID == "" {
+						logrus.Errorf("Missing device ID; please specify one with \"--id\".")
+						os.Exit(1)
+					}
 				}
 
 				deviceType, err = cmd.Flags().GetString("type")
