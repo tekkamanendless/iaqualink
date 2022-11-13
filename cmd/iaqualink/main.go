@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -24,11 +26,46 @@ type Config struct {
 }
 
 func main() {
+	// This is the default config location, including the name of the config ".json" file.
+	// This will be whatever the OS thinks the user's config location is, plus an "iaqualink"
+	// folder with a "config.json" file in it.
+	//
+	// If the user ends up using this default value, then we'll also try to create the "iaqualink"
+	// folder.  Otherwise, it's the user's problem.
+	var defaultConfigLocation string
+	{
+		userConfigDirectory, err := os.UserConfigDir()
+		if err != nil {
+			// Oh well; nothing we can do about it.
+			userConfigDirectory = ""
+		}
+		if userConfigDirectory == "" {
+			defaultConfigLocation = "config.json"
+		} else {
+			defaultConfigLocation = filepath.Join(userConfigDirectory, "iaqualink", "config.json")
+		}
+	}
+
 	rootCmd := &cobra.Command{
 		Use:   "iaqualink",
 		Short: "iAquaLink client",
-		Long:  `This communicates with an iAquaLink device.`,
+		Long: strings.Join(
+			[]string{
+				`This communicates with an iAquaLink device.`,
+				``,
+				`The first thing that you'll want to do is the "login" command to log in, using your`,
+				`username and password.  This information will be saved in a configuration file so that`,
+				`you generally won't have to deal with it again.`,
+				``,
+				`Once logged in, list your devices using the "devices" command.  Make note of the serial`,
+				`number of the device that you'd like to use.`,
+				``,
+				`Finally, use the "device" subcommand to perform actions on a device.`,
+			},
+			"\n",
+		),
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// Set the log level based on the value given.
 			if value, _ := cmd.Flags().GetString("log-level"); value != "" {
 				logLevel, err := logrus.ParseLevel(value)
 				if err == nil {
@@ -37,9 +74,24 @@ func main() {
 					logrus.Warnf("Unknown log level: %q", value)
 				}
 			}
+
+			// If the config location is the default, then create the application folder that the
+			// config file will live in.
+			if value, _ := cmd.Flags().GetString("config"); value == defaultConfigLocation {
+				configDirectory := path.Dir(value)
+				// Only attempt to create the parent folder if we actually have one.
+				// `path.Dir` will return "." if there is none (and we'll also play it safe and check
+				// for the empty string, as well).
+				if configDirectory != "" && configDirectory != "." {
+					_, err := os.Stat(configDirectory)
+					if err != nil && os.IsNotExist(err) {
+						os.Mkdir(configDirectory, 0755)
+					}
+				}
+			}
 		},
 	}
-	rootCmd.PersistentFlags().String("config", os.Getenv("HOME")+"/.config/iaqualink.json", "Path to the config file")
+	rootCmd.PersistentFlags().String("config", defaultConfigLocation, "Path to the config file")
 	rootCmd.PersistentFlags().String("log-level", "info", "Log level {debug,info,warning,error}")
 
 	{
@@ -59,32 +111,42 @@ func main() {
 					os.Exit(1)
 				}
 
-				config := Config{
-					Username:            username,
-					Password:            password,
-					AuthenticationToken: output.AuthenticationToken,
-					IDToken:             output.UserPoolOAuth.IDToken,
-					UserID:              output.ID,
-				}
-				contents, err := json.MarshalIndent(config, "", "   ")
-				if err != nil {
-					logrus.Errorf("Error: %v", err)
-					os.Exit(1)
+				// Write the config so that we can use it on subsequent calls.
+				{
+					config := Config{
+						Username:            username,
+						Password:            password,
+						AuthenticationToken: output.AuthenticationToken,
+						IDToken:             output.UserPoolOAuth.IDToken,
+						UserID:              output.ID,
+					}
+					contents, err := json.MarshalIndent(config, "", "   ")
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+
+					configFilename, err := cmd.Flags().GetString("config")
+					if err != nil {
+						logrus.Errorf("Error: %v", err)
+						os.Exit(1)
+					}
+					err = os.WriteFile(configFilename, contents, 0644)
+					if err != nil {
+						logrus.Errorf("Could not write config file: %v", err)
+					}
 				}
 
-				configFilename, err := cmd.Flags().GetString("config")
+				// Log the response contents.
+				contents, err := json.MarshalIndent(output, "", "   ")
 				if err != nil {
 					logrus.Errorf("Error: %v", err)
 					os.Exit(1)
 				}
-				os.WriteFile(configFilename, contents, 0644)
+				logrus.Debugf("Contents: %s", contents)
 
-				contents, err = json.MarshalIndent(output, "", "   ")
-				if err != nil {
-					logrus.Errorf("Error: %v", err)
-					os.Exit(1)
-				}
-				fmt.Printf("%s\n", contents)
+				// Print a success message.
+				fmt.Printf("Successfully logged in as %s.\n", username)
 			},
 		}
 		rootCmd.AddCommand(cmd)
@@ -120,7 +182,7 @@ func main() {
 	{
 		cmd := &cobra.Command{
 			Use:   "devices",
-			Short: "List the iAquaLink devices",
+			Short: "List the devices on your account",
 			Long:  ``,
 			Args:  cobra.ExactArgs(0),
 			Run: func(cmd *cobra.Command, args []string) {
@@ -150,7 +212,7 @@ func main() {
 		var deviceType string
 		deviceCmd := &cobra.Command{
 			Use:   "device",
-			Short: "Device commands",
+			Short: "Perform device-specific actions",
 			Long:  ``,
 			PersistentPreRun: func(cmd *cobra.Command, args []string) {
 				rootCmd.PersistentPreRun(cmd, args)
@@ -194,7 +256,7 @@ func main() {
 				logrus.Debugf("Device type: %s", deviceType)
 			},
 		}
-		deviceCmd.PersistentFlags().String("id", "", "The ID of the device")
+		deviceCmd.PersistentFlags().String("id", "", "The ID of the device (use the serial number)")
 		deviceCmd.PersistentFlags().String("type", "", "Override the type of the device")
 		rootCmd.AddCommand(deviceCmd)
 
