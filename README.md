@@ -14,6 +14,229 @@ If you'd like to help out, set up an `mitmproxy` and send me your traffic.
 * Polaris P965IQ (device type `i2d_robot`)
 * Zodiac Voyager RE 4400 iQ (device type `cyclonext`)
 
+## Device Types
+
+* `cyclonext`; this definitely includes teh Zodiac Voyager.
+* `exo`; this appears to be a chlorinator of some kind.
+* `id2_robot`; this definitely includes the Polaris IQ models.
+
+## Zodiac API
+Base: https://prod.zodiac-io.com
+
+### `POST /devices/v1/${device}/ota`
+Returns information on if the device has an update available.
+
+Headers:
+
+* `Authorization`: the ID token.
+
+JSON request:
+
+* `deviceType`; the device type.
+* `forceOTA`; either `true` or `false` (I've only ever seen it use `true`).
+
+JSON response:
+
+* `code`; some kind of numeric code.
+* `message`; a human-readable message.
+
+The only values that I'm aware of so far are:
+
+* `6`: `Device is already on latest firmware`
+
+### `GET /devices/v2/${device}/shadow`
+This seems to be identical to `GET /devices/v1/${device}/shadow`.
+
+### `POST /devices/v1/${device}/shadow`
+This appears to let you update the state of the device.
+
+Headers:
+
+* `Authorization`: the ID token.
+
+JSON request:
+
+* `state`
+    * `desired`
+        * `equipment`
+            * `${key}`; this is the key returned by the `GET` version of the endpoint.
+                * (Whatever field(s?) you want to change.
+
+For example, for an `exo` chlorinator, you might set `production: 1` or `production: 0` to turn it on or off, respectively.
+
+JSON response:
+
+This is practically identical to the response from `GET /devices/v2/${device}/shadow`.
+
+### `GET /devices/v2/${device}/features`
+This returns a list of features that the device supports.
+
+Headers:
+
+* `Authorization`: the ID token.
+
+### `GET /devices/v2/${device}/info`
+TODO: ???
+
+Headers:
+
+* `Authorization`: the ID token.
+
+### `GET /devices/v2/${device}/site`
+TODO: ???
+
+Headers:
+
+* `Authorization`: the ID token.
+
+### `GET /devices/v2/${device}/shadow`
+This appears to return the current state of the device.
+
+Headers:
+
+* `Authorization`: the ID token.
+
+JSON response:
+
+* `deviceId`; the device identifier.
+* `state`; the state.
+    * `reported`; the state information as reported by the device.
+        * `aws`; probably AWS-related debug information?
+        * `debug`; debug information?
+        * `equipment`; an object where each key represents a thing of some kind that can be manipulated.
+            * `${key}`; a thing of some kind.  The properties vary based on the device type.
+        * (There are other fields)
+
+### `POST /push/v1/users/unregister-mobile`
+TODO: ???
+
+### `POST /users/v1/login`
+This logs you into the Zodiac API and provides you with a user ID and authentication token.
+These will be used by the iAquaLink API.
+
+JSON body:
+
+* `apiKey`: `EOOEMOW4YR6QNB07`; this appears to be constant.
+* `email`; your e-mail address.
+* `password`; your password.
+
+JSON response (relevant subset):
+
+* `authentication_token`; this is the authentication token.
+* `email`; the same e-mail address.
+* `id`; this is the user ID.
+* `session_id`; ???
+* `userPoolOAuth`; this contains information about OAuth, which is used for newer robot models.
+    * `AccessToken`; the access token.
+    * `ExpiresIn`; when the (access?) token expires.
+    * `IdToken`; the ID token.
+    * `RefreshToken`; the refresh token; this can be used to get a new `AccessToken` value.
+    * `TokenType`; this seems to always be `Bearer`, even though it's not technically used correctly.
+
+### `POST /users/v1/refresh`
+This uses the user's e-mail addresss and `RefreshToken` to effectively log in again.
+
+JSON body:
+
+* `email`; the user's e-mail address.
+* `refresh_token`; the user's `refreshToken` from `POST /users/v1/login`.
+
+JSON response:
+
+The output is similar to that of `POST /users/v1/login`.
+Note, however, that `userPoolOAuth.RefreshToken` will not be present.
+
+## iAquaLink PRM(?) API
+Base: https://prm.iaqualink.net
+
+### `POST /v2/signout`
+TODO: ???
+
+Headers:
+
+* `Authorization`: the authorization token.
+
+## iAquaLink API
+Base: https://r-api.iaqualink.net
+
+### `GET /devices.json`
+This lists the devices on your account.
+You'll need the device ID for any device-related endpoints.
+
+Query parameters:
+
+* `api_key`: `EOOEMOW4YR6QNB07`; this appears to be constant
+* `authentication_token`; your authentication token
+* `user_id`; your user ID
+
+Response JSON:
+
+* An array of objects, each representing a device.
+    * `device_type`; the device type.
+    * `name`; the name given by the user.
+    * `serial_number`; the identifier that will be used to subsequently identify the device.
+
+(There are other fields, but they aren't particularly helpful.)
+
+### `POST /devices/${device}/execute_read_command.json`
+This executes a command on a device.
+
+Query parameters:
+
+* `api_key`: `EOOEMOW4YR6QNB07`; this appears to be constant
+* `authentication_token`; your authentication token
+* `user_id`; your user ID
+* `command`; the command
+* `params`; a query string for the parameters for the command
+
+Commands:
+
+* `/command`
+    * Parameters:
+        * `request`; the request code
+		* `timeout`; the timeout (iAquaLink default: `800`)
+
+Request codes:
+
+* `OAOD`; list the schedule
+* `OA11`; list the status
+* `0A1210`; stop / clear error
+* `0A1240`; start
+* `0A1300`; subtract 30 minutes
+* `0A1301`; add 30 minutes
+* `0A1700`; lift system, stop
+* `0A1701`; lift system, lift
+* `0A1B42`; backward
+* `0A1B46`; forward
+* `0A1B4C`; turn left
+* `0A1B52`; turn right
+
+Request code format:
+
+* `0A` `<command>` [`<subcommand>`]
+
+Commands:
+
+* `0D`; list the schedule
+* `11`; list the status
+* `12`; start/stop
+    * `10`; stop / clear error
+    * `40`; start
+
+* `13`; add/subtract time
+    * `00`; subtract 30 minutes
+    * `01`; add 30 minutes
+
+* `17`; lift system
+    * `00`; stop
+    * `01`; start
+
+* `1B`; remote control
+    * `42`; ASCII "B" - backward
+    * `46`; ASCII "F" - forward
+    * `4C`; ASCII "L" - left
+    * `52`; ASCII "R" - right
+
 ## Web Socket API
 Base: https://prod-socket.zodiac-io.com
 
@@ -253,116 +476,28 @@ SEND:
 }
 ```
 
-## Zodiac API
-Base: https://prod.zodiac-io.com
+## Other Secret(?) Web Socket API
+Base: https://a1zi08qpbrtjyq-ats.iot.us-east-1.amazonaws.com
 
-### `/devices/v2/${device}/features`
-TODO
-
-Headers:
-
-* `Authorization`: the ID token.
-
-### `/devices/v2/${device}/info`
-TODO
-
-Headers:
-
-* `Authorization`: the ID token.
-
-### `/devices/v2/${device}/site`
-TODO
-
-Headers:
-
-* `Authorization`: the ID token.
-
-### `/users/v1/login`
-This logs you into the Zodiac API and provides you with a user ID and authentication token.
-These will be used by the iAquaLink API.
-
-JSON body:
-
-* `apiKey`: `EOOEMOW4YR6QNB07`; this appears to be constant
-* `email`; your e-mail address
-* `password`; your password
-
-JSON response (relevant subset):
-
-* `authenticationToken`; this is the authentication token
-* `id`; this is the user ID
-
-## iAquaLink API
-Base: https://r-api.iaqualink.net
-
-### `/devices.json`
-This lists the devices on your account.
-You'll need the device ID for any device-related endpoints.
+### `/mqtt`
+This endpoint appears to be the main endpoint for communication (when supported).
 
 Query parameters:
 
-* `api_key`: `EOOEMOW4YR6QNB07`; this appears to be constant
-* `authentication_token`; your authentication token
-* `user_id`; your user ID
+* `X-Amz-Algorithm`: `AWS4-HMAC-SHA256`; (?)
+* `X-Amz-Credential`; this appears to be the value from `/login`'s `credentials.AccessKeyId`, followed by `/`, then the date as `YYYYMMDD`, then the region (from `credentials.IdentityId`?), followed by `/`, then `iotdata`, followed by `/`, and then `aws4_request`.
+* `X-Amz-Date`; this is a date of some kind of the format `YYYYMMDDTHHMMSSZ`.
+* `X-Amz-SignedHeaders`: `host`; (?)
+* `X-Amz-Signature`; this looks like a SHA sum of some kind (for example: `ab4a5bc3e82c19584ca1de54d55d1538a4775f4cf`)
 
-### `/devices/${device}/execute_read_command.json`
-This executes a command on a device.
+I have no idea how to find or create those parameters.
 
-Query parameters:
+The web socket communication also appears to be in binary format, and I haven't figured out how to decode it yet.
 
-* `api_key`: `EOOEMOW4YR6QNB07`; this appears to be constant
-* `authentication_token`; your authentication token
-* `user_id`; your user ID
-* `command`; the command
-* `params`; a query string for the parameters for the command
+### ???
+Perhaps also on this API is:
 
-Commands:
-
-* `/command`
-    * Parameters:
-        * `request`; the request code
-		* `timeout`; the timeout (iAquaLink default: `800`)
-
-Request codes:
-
-* `OAOD`; list the schedule
-* `OA11`; list the status
-* `0A1210`; stop / clear error
-* `0A1240`; start
-* `0A1300`; subtract 30 minutes
-* `0A1301`; add 30 minutes
-* `0A1700`; lift system, stop
-* `0A1701`; lift system, lift
-* `0A1B42`; backward
-* `0A1B46`; forward
-* `0A1B4C`; turn left
-* `0A1B52`; turn right
-
-Request code format:
-
-* `0A` `<command>` [`<subcommand>`]
-
-Commands:
-
-* `0D`; list the schedule
-* `11`; list the status
-* `12`; start/stop
-    * `10`; stop / clear error
-    * `40`; start
-
-* `13`; add/subtract time
-    * `00`; subtract 30 minutes
-    * `01`; add 30 minutes
-
-* `17`; lift system
-    * `00`; stop
-    * `01`; start
-
-* `1B`; remote control
-    * `42`; ASCII "B" - backward
-    * `46`; ASCII "F" - forward
-    * `4C`; ASCII "L" - left
-    * `52`; ASCII "R" - right
+* `/aws/things/${device}/shadow/get/accepted` (?)
 
 ## iAquaLink API Command Responses
 The response is plain text representing hexadecimal data (no spaces).
@@ -534,5 +669,6 @@ The ideal workflow is the following:
 8. Configure your phone's wifi to not use the proxy anymore.
 
 This way, the traffic captured only has the login operation and a single operation.
+If you're going to share this capture with someone, please _change your password_ after completing it (or change it before you start and then change it back when you're done).
 
 If you perfom multiple operations, please write down which operations you performed in the order that you performed them.
