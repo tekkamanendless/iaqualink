@@ -629,6 +629,8 @@ func main() {
 							switch errorState {
 							case 0x00:
 								errorStateName = "none"
+							case 0x04:
+								errorStateName = "pump motor consumption"
 							case 0x05:
 								errorStateName = "drive motor consumption right"
 							case 0x08:

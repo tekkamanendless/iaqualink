@@ -631,6 +631,7 @@ The runtime only appears to update after a cleaning cycle completes.
 Error code ???:
 
 * `00`; no error
+* `04`; pump motor consumption
 * `05`; drive motor consumption right
 * `08`; out of water
 * `0a`; communication
