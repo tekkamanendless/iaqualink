@@ -636,14 +636,19 @@ Error code ???:
 * `08`; out of water
 * `0a`; communication
 
-Cleaning mode:
+Cleaning mode (`& 0x0f`):
 
-* `08`; floor (standard)
-* `09`; floor (high) ["custom" in the app]
-* `0A`; floor and walls (standard) ["custom" in the app]
-* `0B`; floor and walls (high)
-* `0C`; waterline (standard)
-* `0D`; waterline (high) ["custom" in the app]
+* `0x8`; floor (standard)
+* `0x9`; floor (high) ["custom" in the app]
+* `0xA`; floor and walls (standard) ["custom" in the app]
+* `0xB`; floor and walls (high)
+* `0xC`; waterline (standard)
+* `0xD`; waterline (high) ["custom" in the app]
+
+Cleaning mode (`& 0x10 >> 8`):
+
+* `0x0`; no notes
+* `0x1`; the canister is full
 
 ## Development
 

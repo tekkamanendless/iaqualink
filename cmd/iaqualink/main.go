@@ -652,23 +652,34 @@ func main() {
 
 							results["cleaning_mode"] = cleaningMode
 							var cleaningModeName string
-							switch cleaningMode {
-							case 0x08:
+							switch cleaningMode & 0x0f {
+							case 0x8:
 								cleaningModeName = "floor (standard)"
-							case 0x09:
+							case 0x9:
 								cleaningModeName = "floor (high)"
-							case 0x0A:
+							case 0xA:
 								cleaningModeName = "floor and walls (standard)"
-							case 0x0B:
+							case 0xB:
 								cleaningModeName = "floor and walls (high)"
-							case 0x0C:
+							case 0xC:
 								cleaningModeName = "waterline (standard)"
-							case 0x0D:
+							case 0xD:
 								cleaningModeName = "waterline (high)"
 							default:
-								cleaningModeName = "TODO:" + cleaningModeString
+								cleaningModeName = "TODO:" + fmt.Sprintf("0x%x", cleaningMode&0x0f)
 							}
 							results["cleaning_mode_name"] = cleaningModeName
+
+							var canisterStateName string
+							switch (cleaningMode & 0xf0) >> 4 {
+							case 0x0:
+								canisterStateName = "okay"
+							case 0x1:
+								canisterStateName = "full"
+							default:
+								canisterStateName = "TODO:" + fmt.Sprintf("0x%x", (cleaningMode&0xf0)>>4)
+							}
+							results["canister_state"] = canisterStateName
 
 							minutesRemainingString := input[0:2]
 							input = input[2:]
