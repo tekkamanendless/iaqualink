@@ -471,7 +471,7 @@ func (c *Client) DeviceWebSocket(deviceID string, actions ...string) (map[string
 		if err != nil {
 			return nil, fmt.Errorf("could not receive from Web Socket: %w", err)
 		}
-		logrus.Debugf("Received: %s", contents)
+		logrus.Debugf("Received: (%d) %s", len(contents), contents)
 		if len(contents) == 0 {
 			time.Sleep(100 * time.Millisecond)
 			continue
@@ -575,7 +575,7 @@ func (c *Client) DeviceWebSocket(deviceID string, actions ...string) (map[string
 				if err != nil {
 					return nil, fmt.Errorf("could not receive from Web Socket: %w", err)
 				}
-				logrus.Debugf("Received: %s", contents)
+				logrus.Debugf("Received: (%d) %s", len(contents), contents)
 				if len(contents) == 0 {
 					time.Sleep(100 * time.Millisecond)
 					continue
