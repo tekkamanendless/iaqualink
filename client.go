@@ -55,6 +55,46 @@ type Client struct {
 	Client *http.Client // The HTTP client.
 }
 
+// StringOrNumber represents either a string or a number.
+// The underlying representation is a string, but it'll parse in either direction.
+type StringOrNumber struct {
+	stringValue string
+	isString    bool
+}
+
+func (s StringOrNumber) String() string {
+	return s.stringValue
+}
+
+func (s StringOrNumber) MarshalJSON() ([]byte, error) {
+	if s.isString {
+		return json.Marshal(s.stringValue)
+	}
+
+	numberValue, err := strconv.ParseFloat(s.stringValue, 64)
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(numberValue)
+}
+
+func (s *StringOrNumber) UnmarshalJSON(contents []byte) error {
+	err := json.Unmarshal(contents, &s.stringValue)
+	if err == nil {
+		s.isString = true
+		return nil
+	}
+
+	var numberValue float64
+	err = json.Unmarshal(contents, &numberValue)
+	if err == nil {
+		s.isString = false
+		s.stringValue = fmt.Sprintf("%v", numberValue)
+	}
+
+	return fmt.Errorf("invalid contents for StringOrNumber; got %q", contents)
+}
+
 // LoginInput is the login input.
 type LoginInput struct {
 	APIKey   string `json:"apiKey"`
@@ -83,19 +123,19 @@ type LoginOutput struct {
 		SecretKey    string `json:"SecretKey"`
 		SessionToken string `json:"SessionToken"`
 	} `json:"credentials"`
-	Email         string `json:"email"`
-	FirstName     string `json:"first_name"`
-	ID            string `json:"id"`
-	LastName      string `json:"last_name"`
-	OptIn1        string `json:"opt_in_1"`
-	OptIn2        string `json:"opt_in_2"`
-	Phone         string `json:"phone"`
-	PostalCode    string `json:"postal_code"`
-	Role          string `json:"role"`
-	SessionID     string `json:"session_id"`
-	State         string `json:"state"`
-	TimeZone      string `json:"time_zone"`
-	UpdatedAt     string `json:"updated_at"` // Should be `time.Time`, but oh well.
+	Email         string         `json:"email"`
+	FirstName     string         `json:"first_name"`
+	ID            StringOrNumber `json:"id"`
+	LastName      string         `json:"last_name"`
+	OptIn1        string         `json:"opt_in_1"`
+	OptIn2        string         `json:"opt_in_2"`
+	Phone         string         `json:"phone"`
+	PostalCode    string         `json:"postal_code"`
+	Role          string         `json:"role"`
+	SessionID     string         `json:"session_id"`
+	State         string         `json:"state"`
+	TimeZone      string         `json:"time_zone"`
+	UpdatedAt     string         `json:"updated_at"` // Should be `time.Time`, but oh well.
 	UserPoolOAuth struct {
 		AccessToken  string `json:"AccessToken"`
 		ExpiresIn    int    `json:"ExpiresIn"`
@@ -254,7 +294,7 @@ func (c *Client) Login(username, password string) (*LoginOutput, error) {
 			return nil, err
 		}
 		c.AuthenticationToken = output.AuthenticationToken
-		c.UserID = output.ID
+		c.UserID = output.ID.String()
 		c.IDToken = output.UserPoolOAuth.IDToken
 		return &output, nil
 	}

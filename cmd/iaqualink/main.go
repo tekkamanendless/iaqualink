@@ -121,7 +121,7 @@ func main() {
 						Password:            password,
 						AuthenticationToken: output.AuthenticationToken,
 						IDToken:             output.UserPoolOAuth.IDToken,
-						UserID:              output.ID,
+						UserID:              output.ID.String(),
 					}
 					contents, err := json.MarshalIndent(config, "", "   ")
 					if err != nil {
