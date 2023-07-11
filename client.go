@@ -90,6 +90,7 @@ func (s *StringOrNumber) UnmarshalJSON(contents []byte) error {
 	if err == nil {
 		s.isString = false
 		s.stringValue = fmt.Sprintf("%v", numberValue)
+		return nil
 	}
 
 	return fmt.Errorf("invalid contents for StringOrNumber; got %q", contents)
